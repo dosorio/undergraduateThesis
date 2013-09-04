@@ -1,4 +1,7 @@
-;Archivo de Minimización de Energía hasta 1000kJ/mol
+; Copyright (c) 2013, Daniel Osorio <daniel.osorio@correo.uis.edu.co>
+; All rights reserved.
+
+;Archivo de Minimización de Energía hasta 1000kJ/mol para péptidos en solvatación e interacciones péptido membrana.
 
 ; Parámetros generales:
 integrator	= steep		; Minimización de energía descendiente por pasos
