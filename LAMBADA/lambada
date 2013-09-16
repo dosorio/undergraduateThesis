@@ -1,0 +1,1437 @@
+#!/usr/bin/perl -w
+
+# Copyright 2012 Thomas H. Schmidt & Christian Kandt
+#
+# This file is part of LAMBADA.
+#
+# LAMBADA is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# any later version.
+#
+# LAMBADA is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with LAMBADA; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+
+### Load Packages & Modules ####################################################
+use strict;
+#use Cwd;
+#use Fcntl;
+use IO::Handle;
+use Math::Trig;
+use FindBin qw($RealBin); # Absolute path to THIS script.
+use lib $RealBin . "/modules";
+autoflush STDOUT 1; # For direct output (IO:Handle).
+
+use cmdline;
+use FileIO::gro;
+use protein;
+################################################################################
+
+
+
+### Default Parameters #########################################################
+our $version        = "rc1";              # Version number.
+our $year           = "2012";             # Year (of change).
+
+our $verbose        = 0;                  # Be loud and noisy (and global); default: silent.
+my $protInFile    = 'protein.gro';        # Protein coordinates file.
+my $protNdxInFile = '';                   # Protein NDX file.
+my $membInFile    = 'membrane.gro';       # Membrane coordinates file.
+my $membNdxInFile = '';                   # Membrane NDX file.
+my $groOutFile    = 'prot_memb.gro';      # Output GRO file.
+my $cgProtGroFile = '';                   # Output GRO file of the coarse-grained protein.
+my $gridOutFile   = '';                   # Output GRO file of the grid.
+my $orient        = 1;                    # Orient the protein.
+my $hsprofOutFile = '';                   # Output file of the hydrophilicity-surface score (profile).
+my $cavityExcl    = 1;                    # Exclude charged surface residue detection for protein internal volumes.
+my $gridDeltaZ    = 0.3;                  # Grid size to detect the area of the protein [nm].
+my $lipidResname  = '^POP[ACEG]?$';       # Regex for the automatic detection of lipid molecules in the membrane GRO file.
+my $lsLandscape   = 0;                    # Determine and write out the energy landscape.
+my $angRangeLimit = 5;                    # For protein orientation: stop if recursive refinement of the rotation angle is less than this value.
+#my $nMembranes    = 1;
+my $withPlanes    = 0;                    # Add the planes for highlighting the borders of the hydrophobic range.
+my $thicknHphobic = 2.4;                  # The width of the hydrophobic belt.
+#my $membThickness = 4.86;                 # ...if it could not be measured.
+my $isTMProt      = 1;
+my $helpAndQuit   = 0;                    # Print out program help.
+#my @rotAngs       = (0, 90, 0, 90);
+################################################################################
+
+
+
+### Internal parameters ########################################################
+
+my %protData;         # Filled by "GROFiles::readGro(<GROFILE>)".
+my %membData;         # Filled by "GROFiles::readGro(<GROFILE>)".
+my @membNdxData;      # Filled by "NDXFiles::readNdx(<NDXFILE>)".
+my @membHeadGroupIds; # Filled by "NDXFiles::selectGroupIds(...)".
+
+
+my $membZCenter = 0;
+my $thicknHphobicUp;
+my $thicknHphobicLow;
+
+my $gridRef;
+
+#my $hphobicGridRange;
+
+#my $contProtRef;
+my $sliceScoreRef;
+my $beltZCenter;
+#my $orderedRangesRef;
+#my $beltHashRef;
+
+our $xRotAng = 0;
+our $yRotAng = 0;
+our %absMinScore   = ('score' => 50000,
+                      'xRotAng' => 0,
+                      'yRotAng' => 0);
+
+my %cgProtData;
+my %cgMembData;
+
+my @tmpArray;
+################################################################################
+
+
+
+### Print out program headlines ################################################
+printHead();
+################################################################################
+
+
+
+### Handle commandline parameters ##############################################
+Cmdline::addCmdlParam('scalar', 'f1', 'Input', \$protInFile, $protInFile, 'Structure file: gro');
+Cmdline::addCmdlParam('scalar', 'n1', 'Input, Opt.', \$protNdxInFile, 'protein.ndx', 'Index file');
+Cmdline::addCmdlParam('scalar', 'f2', 'Input', \$membInFile, $membInFile, 'Structure file: gro');
+Cmdline::addCmdlParam('scalar', 'n2', 'Input, Opt.', \$membNdxInFile, 'membrane.ndx', 'Index file');
+Cmdline::addCmdlParam('scalar', 'o', 'Output', \$groOutFile, $groOutFile, 'Structure file: gro');
+Cmdline::addCmdlParam('scalar', 'cg', 'Output, Opt.', \$cgProtGroFile, $cgProtGroFile, 'Structure file: gro');
+Cmdline::addCmdlParam('scalar', 'grd', 'Output, Opt.', \$gridOutFile, $gridOutFile, 'Structure file: gro');
+#Cmdline::addCmdlParam('array', 't', 'Input, Mult.', \@multiArray, 'traj.gro', 'Trajectory: gro'); # NOTE: Just an example.
+Cmdline::addCmdlParam('scalar', 'hs', 'Output, Opt.', \$hsprofOutFile, $hsprofOutFile, 'Generic data file');
+Cmdline::addCmdlParam('flag', 'h', 'bool', \$helpAndQuit, $helpAndQuit ? 'yes' : 'no', 'Print help info and quit');
+Cmdline::addCmdlParam('scalar', 'gz', 'real', \$gridDeltaZ, $gridDeltaZ, 'Grid spacing along the Z axis');
+Cmdline::addCmdlParam('flag', 'orient', 'bool', \$orient, $orient ? 'yes' : 'no', 'Orient the protein');
+Cmdline::addCmdlParam('flag', 'landscape', 'bool', \$lsLandscape, $lsLandscape ? 'yes' : 'no', 'Write out the LAMBADA score landscape of different rotation angle combinations');
+Cmdline::addCmdlParam('scalar', 'anglimit', 'real', \$angRangeLimit, $angRangeLimit, 'For protein orientation: stop if recursive refinement of the rotation angle is less than this value');
+#Cmdline::addCmdlParam('scalar', 'nmemb', 'int', \$nMembranes, $nMembranes, 'Number of hydrophobic belts for detection');
+Cmdline::addCmdlParam('flag', 'planes', 'bool', \$withPlanes, $withPlanes ? 'yes' : 'no', 'Add dummy atoms representing the membrane plane');
+#Cmdline::addCmdlParam('flag', 'tm', 'bool', \$isTMProt, $isTMProt, 'The protein is a transmembrane protein');
+Cmdline::addCmdlParam('flag', 'v', 'bool', \$verbose, $verbose ? 'yes' : 'no', 'Be loud and noisy');
+Cmdline::addCmdlParam('scalar', 'bw', 'real', \$thicknHphobic, $thicknHphobic, 'Hydrophobic belt width (nm) (obsolete if a membrane NDX file is given)');
+Cmdline::addCmdlParam('scalar', 'lr', 'string', \$lipidResname, $lipidResname, 'Regex for the detection of the bilayer atoms of the membrane GRO file (obsolete if a membrane NDX file is given)');
+
+Cmdline::parser();
+################################################################################
+
+
+
+### Modifications after CMDLine ################################################
+$thicknHphobicUp  = $thicknHphobic/2;
+$thicknHphobicLow = $thicknHphobic/2;
+################################################################################
+
+
+
+### Print program help if the user set the flag ################################
+printHelp(Cmdline::getCmdlParamRef(), 1) if $helpAndQuit;
+################################################################################
+
+
+
+### Read the membrane GRO file #################################################
+%membData = GRO::readGro($membInFile); # Read membrane input GRO file.
+################################################################################
+
+
+
+### Get the membrane NDX data ##################################################
+#if ($membNdxInFile) {
+#    @membNdxData = NDXFiles::readNdx($membNdxInFile); # Read input NDX file.
+#    NDXFiles::printNdxGroups(@membNdxData);
+#    @membHeadGroupIds = selectGroupIds(\@membNdxData, 'membrane headgroups');
+#}
+#else {
+    @membNdxData = getAtomIdsByResname($membData{'atoms'}, $lipidResname);
+#    printHelp();
+#}
+################################################################################
+
+
+
+### Detect the bilayer thickness ###############################################
+$membZCenter = getMembZCenter($membData{'atoms'}, \@membNdxData);
+
+#my @tmpArray = getBilayerThickness($membData{'atoms'}, $membNdxData[$membHeadGroupIds[0]]{'atoms'});
+#$membThickness  = $tmpArray[0];
+#my $membZCenter = $tmpArray[1];
+################################################################################
+
+
+
+### Define the parameters for the protein grid #################################
+Protein::setGridDelta(0.1, 0.1, $gridDeltaZ); # Set the grid spacing in x, y & z.
+################################################################################
+
+
+
+### Orient the protein #########################################################
+if ($orient) {
+    ### Rotate the protein along its principal axis ############################
+    unless ($protNdxInFile) {
+        $protNdxInFile = $protInFile;
+        unless($protNdxInFile =~ s/\.(gro|pdb)$/.ndx/) {
+            $protNdxInFile .= '.ndx';
+        }
+    }
+    `echo q | make_ndx -f $protInFile -o $protNdxInFile`;
+    `echo 1 3 1 | editconf -f $protInFile -n $protNdxInFile -d 5 -princ -o oriented.princ.gro 1>> editconf.log 2>> editconf.log`;
+    ############################################################################
+
+
+    ### Load the GRO file ######################################################
+    $protInFile = "oriented.princ.gro";
+    %protData = GRO::readGro($protInFile); # Read protein input GRO file.
+    ############################################################################
+
+
+    ### Build protein CG coordinates set #######################################
+    $cgProtData{'title'}  = $protData{'title'};
+    $cgProtData{'box'}    = $protData{'box'};
+
+    $cgProtData{'atoms'}  = buildCgProt($protData{'atoms'});
+    $cgProtData{'atoms'}  = renumAtoms($cgProtData{'atoms'});
+    $cgProtData{'nAtoms'} = scalar(@{$cgProtData{'atoms'}}) - 1;
+    GRO::writeGro($cgProtGroFile, \%cgProtData) if $cgProtGroFile;
+    ############################################################################
+
+
+    ### Extract the CG atom IDs ################################################
+    my @cgProtAtomIds;
+    for (my $i=1; $i<@{$cgProtData{'atoms'}}; $i++) {
+        push(@cgProtAtomIds, $i);
+    }
+    my %rotPoint = getGeoCenter(\@cgProtAtomIds, $cgProtData{'atoms'});
+    ############################################################################
+
+
+    ### Find recursively the orientation with the least score ##################
+    if ($lsLandscape) {
+        getLeastScoreLandscape(\@cgProtAtomIds, $cgProtData{'atoms'}, \%rotPoint); # Write out the values for the rotation angle landscape.
+        exit;
+    }
+    recRotXY2MinScore(\@cgProtAtomIds, $cgProtData{'atoms'}, \%rotPoint, 90, 90, 90, $angRangeLimit);
+    ############################################################################
+
+
+    ### Rotate the atomistic model #############################################
+    `echo q | make_ndx -f oriented.princ.gro -o temp.ndx`;
+    `echo 3 1 | editconf -f oriented.princ.gro -n temp.ndx -d 2 -rotate $absMinScore{'xRotAng'} $absMinScore{'yRotAng'} 0 -o oriented.final.gro 1>> editconf.log 2>> editconf.log`;
+    `rm temp.ndx`;
+    ############################################################################
+
+
+    ### Load the GRO file ######################################################
+    %protData = GRO::readGro('oriented.final.gro'); # Read protein input GRO file.
+    ############################################################################
+}
+else {
+    ### Load the GRO file ######################################################
+    %protData = GRO::readGro($protInFile);
+    ############################################################################
+}
+################################################################################
+
+
+
+### Build protein CG coordinates set ###########################################
+$cgProtData{'title'}  = $protData{'title'};
+$cgProtData{'box'}    = $protData{'box'};
+
+$cgProtData{'atoms'}  = buildCgProt($protData{'atoms'});
+$cgProtData{'atoms'}  = renumAtoms($cgProtData{'atoms'});
+$cgProtData{'nAtoms'} = (scalar(@{$cgProtData{'atoms'}}) - 1);
+GRO::writeGro('final.cgprot.gro', \%cgProtData) if $cgProtGroFile;
+################################################################################
+
+
+
+### Build protein grid #########################################################
+my @cgProtAtomIds;
+for (my $i=1; $i<@{$cgProtData{'atoms'}}; $i++) {
+    push(@cgProtAtomIds, $i);
+}
+@tmpArray = Protein::analyze(\@cgProtAtomIds,
+                             $cgProtData{'atoms'});
+$gridRef  = $tmpArray[2];
+
+Protein::grid2GroFile('final.grid.gro') if $gridOutFile; # Print grid-coordinates.
+################################################################################
+
+
+
+### Calculate the score for each slice along the Z axis (HS) ###################
+$sliceScoreRef = getSliceScore($gridRef, $gridDeltaZ, $hsprofOutFile);
+################################################################################
+
+
+
+### Determine the hydophobic belt ##############################################
+my %belt = detectBelts($sliceScoreRef, $gridDeltaZ, $thicknHphobicUp, $thicknHphobicLow, $thicknHphobic, $isTMProt);
+################################################################################
+
+#$sliceScoreRef = getSliceScore($gridRef, $gridDeltaZ, $contProtRef, $hsprofOutFile);
+
+$beltZCenter = $belt{'hphobCent'} * $gridDeltaZ if $belt{'hphobCent'};
+
+
+
+my @protAtomIds = getAtomIds($protData{'atoms'});
+my @membAtomIds = getAtomIds($membData{'atoms'});
+
+
+
+#### Translate all protein atoms to the center of the membrane box #############
+centerGroup(\@protAtomIds, $protData{'atoms'}, $membData{'box'});
+################################################################################
+
+
+
+### For validation only: build a couple of dummy atoms #########################
+buildDummyPlane($protData{'atoms'}, \@protAtomIds, $beltZCenter, $thicknHphobicUp, $thicknHphobicLow) if $withPlanes;
+################################################################################
+
+
+
+unless (defined $beltZCenter) {
+    print "Sorry, don't found a hydrophobic belt...\n";
+    exit;
+}
+
+
+### Translate all bilayer atoms to the center (z-axis) of the hydrophob. belt. #
+my $zTranslVec = $beltZCenter - $membZCenter;
+zTranslateGroup(\@membAtomIds, $membData{'atoms'}, $zTranslVec);
+################################################################################
+
+
+
+### Combine system components and write out the coordinates ####################
+my %combData = combGroData(\%protData, \%membData);
+GRO::writeGro($groOutFile, \%combData);
+exit;
+################################################################################
+
+
+
+################################################################################
+### Subroutines ################################################################
+################################################################################
+sub printHead {
+    print <<EndOfHead;
+################################################################################
+
+                                  LAMBADA $version
+               Orient, align and combine membrane protein systems
+               Copyright Thomas H. Schmidt & Christian Kandt, $year
+
+                     http://code.google.com/p/lambada-align
+
+                  LAMBADA comes with ABSOLUTELY NO WARRANTY.
+          This is free software, and you are welcome to redistribute it
+            under certain conditions; type `-copyright' for details.
+
+################################################################################
+
+EndOfHead
+}
+
+
+
+sub printFoot {
+    print <<EndOfFoot;
+Please cite:
+  [1] Schmidt, T. H. & Kandt C. LAMBADA & InflateGRO2: Efficient Membrane Alignment
+      and Insertion of Membrane Proteins for Molecular Dynamics Simulations.
+      J. Chem. Inf. Model. (2012).[http://dx.doi.org/10.1021/ci3000453]
+
+EndOfFoot
+}
+
+
+
+sub printHelp {
+    my $cmdLParamRef   = shift;
+    my $quitAfterPrint = shift;
+
+
+    print <<EndOfHelp;
+DESCRIPTION
+-----------
+LAMBADA reads the coordinate files of a membrane protein and a lipid bilayer,
+orients the protein according to its hydrophobic belt planes parallel to the
+XY plane of the simulation box, aligns the membrane then and puts out the combined
+system ready for protein insertion (e.g. using InflateGRO2).
+
+USAGE: lambada -f1 PROTEINGROFILE -f2 MEMBRANEGROFILE -o OUTPUTGROFILE
+
+EndOfHelp
+
+    Cmdline::printParamHelp($cmdLParamRef);
+
+    printFoot();
+
+    exit if $quitAfterPrint;
+}
+
+
+
+sub printCopyright {
+    print <<"EndOfCopyright";
+LAMBADA is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+any later version.
+
+LAMBADA is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with LAMBADA; if not, write to the Free Software Foundation, Inc.,
+51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+EndOfCopyright
+    exit;
+}
+
+
+
+sub getLeastScoreLandscape {
+    my $rotAtomIdsRef = shift;
+    my $atomCoordsRef = shift;
+    my $rotPointRef   = shift;
+
+    my $angRange = 5;
+    my $xStart   = 0;
+    my $xEnd     = 180;
+    my $yStart   = 0;
+    my $yEnd     = 180;
+    my @minScores;
+#    $angRange = 1 if $angRange < 2;
+
+    open(ANGFILE, ">landscape." . $angRange . "deg.dat") || die "ERROR: Cannot open \"landscape." . $angRange . "deg.dat\": $!\n";
+    print "\nChecking range from x = ($xStart to $xEnd) and y = ($yStart to $yEnd) (angle range $angRange)\n";
+
+    my %xRotAxis = ('cooX' => 10000, 'cooY' => 0, 'cooZ' => 0);
+    my %yRotAxis = ('cooX' => 0, 'cooY' => 10000, 'cooZ' => 0);
+
+    ### ROTATION ###############################################################
+    for (my $xRotAng=$xStart; $xRotAng<=$xEnd; $xRotAng+=$angRange) {
+
+        ### Rotate the protein around the x axis ###############################
+        my @rotatedCoords = @{$atomCoordsRef};
+        @rotatedCoords = rotateAroundVec($atomCoordsRef, \%xRotAxis, $rotPointRef, $xRotAng) unless $xRotAng == 0;
+        ########################################################################
+
+        for (my $yRotAng=$yStart; $yRotAng<=$yEnd; $yRotAng+=$angRange) {
+
+            ### Rotate the protein around the y axis ###########################
+            my @rotatedCoords2 = @rotatedCoords;
+            @rotatedCoords2 = rotateAroundVec(\@rotatedCoords, \%yRotAxis, $rotPointRef, $yRotAng) unless $yRotAng == 0;
+            ####################################################################
+
+
+            ### Build the rotated CG model #####################################
+            my %rotProtData;
+            $rotProtData{'box'}    = $cgProtData{'box'};
+            $rotProtData{'nAtoms'} = (scalar(@rotatedCoords2) - 1);
+            $rotProtData{'title'}  = $cgProtData{'title'};
+            $rotProtData{'atoms'}  = \@rotatedCoords2;
+
+#            my @rotProtAtomIds = getAtomIds($rotProtData{'atoms'});
+#            GRO::writeGro(sprintf("rotated.%02d-%02d.gro", $xRotAng, $yRotAng), \%rotProtData);
+            ####################################################################
+
+
+            ### Build protein grid #############################################
+            $gridRef = 0;
+            @tmpArray = Protein::analyze($rotAtomIdsRef,
+                                         \@rotatedCoords2);
+            $gridRef  = $tmpArray[2];
+
+#            Protein::grid2GroFile($gridOutFile) if $gridOutFile; # Print grid-coordinates.
+            ####################################################################
+
+
+            ### Count the z distribution (hydrophilicity profile) ##############
+            $sliceScoreRef = getSliceScore($gridRef, $gridDeltaZ, $hsprofOutFile);
+            ####################################################################
+
+
+            ### Determine the hydophobic belts #################################
+            my %belt = detectBelts($sliceScoreRef, $gridDeltaZ, $thicknHphobicUp, $thicknHphobicLow, $thicknHphobic, $isTMProt);
+
+            next unless $belt{'score'};
+
+            $beltZCenter = $belt{'hphobCent'} * $gridDeltaZ if $belt{'hphobCent'};
+            my @rotProtAtomIds = getAtomIds($rotProtData{'atoms'});
+            buildDummyPlane($rotProtData{'atoms'}, \@rotProtAtomIds, $beltZCenter, $membData{'box'});
+            $rotProtData{'nAtoms'} = (scalar(@{$rotProtData{'atoms'}}) - 1);
+            GRO::writeGro(sprintf("rotated.%02d-%02d.gro", $xRotAng, $yRotAng), \%rotProtData);
+
+
+            my %tmpHash = ('xRotAng' => $xRotAng, 'yRotAng' => $yRotAng, 'score' => $belt{'score'});
+            %absMinScore = %tmpHash if $absMinScore{'score'} > $belt{'score'};
+            push(@minScores, \%tmpHash);
+
+            print ANGFILE "$xRotAng $yRotAng $belt{'score'}\n";
+            print "  MinScore: " . $belt{'score'} . " (x = $xRotAng, y = $yRotAng)" if $main::verbose;
+            print " (Abs. MinScore = " . $absMinScore{'score'} . " (x = " . $absMinScore{'xRotAng'} . ", y = " . $absMinScore{'yRotAng'} . "))\n" if $main::verbose;
+            undef %belt;
+#            print "    Abs. MinScore: " . $minHs{'score'}  . " x = $minHs{'xRotAng'}, y = $minHs{'yRotAng'}\n";
+
+            ####################################################################
+        }
+    }
+    close(ANGFILE);
+    ############################################################################
+
+
+    ### Sort all found least scores (ASC) ######################################
+    return unless @minScores;
+    my @sortedMinScores = sort { $a->{'score'} <=> $b->{'score'} } @minScores;
+    my $minScore = int($sortedMinScores[0]{'score'});
+    foreach (@sortedMinScores) {
+        next if int($$_{'score'}) > $minScore;
+#        print "-> Going deeper with score " . $$_{'score'} . " at x = $$_{'xRotAng'}, y = $$_{'yRotAng'} (angle range $angRange)\n";
+#        recRotXY2MinScore($rotAtomIdsRef, $atomCoordsRef, $rotPointRef, $$_{'xRotAng'}, $$_{'yRotAng'}, $angRange/2);
+#        print "<- Going upper with score " . $$_{'score'} . " at x = $$_{'xRotAng'}, y = $$_{'yRotAng'} (angle range $angRange)\n";
+    }
+    ############################################################################
+
+
+}
+
+
+
+sub recRotXY2MinScore {
+    my $rotAtomIdsRef = shift;
+    my $atomCoordsRef = shift;
+    my $rotPointRef   = shift;
+    my $middleXRotAng = shift;
+    my $middleYRotAng = shift;
+    my $angRange      = shift;
+    my $angRangeLimit = shift;
+
+    return if $angRange < $angRangeLimit;
+
+    my $xStart  = $middleXRotAng - $angRange;
+    my $xEnd    = $middleXRotAng + $angRange;
+    my $yStart  = $middleYRotAng - $angRange;
+    my $yEnd    = $middleYRotAng + $angRange;
+    my @minScores;
+#    $angRange = 1 if $angRange < 2;
+
+    open(ANGFILE, ">ang.$angRange.dat") || die "ERROR: Cannot open \"ang.$angRange.dat\": $!\n";
+    print "\nChecking range from x = ($xStart to $xEnd) and y = ($yStart to $yEnd) (angle range $angRange)\n";
+
+    my %xRotAxis = ('cooX' => 10000, 'cooY' => 0, 'cooZ' => 0);
+    my %yRotAxis = ('cooX' => 0, 'cooY' => 10000, 'cooZ' => 0);
+
+    ### ROTATION ###############################################################
+    for (my $xRotAng=$xStart; $xRotAng<=$xEnd; $xRotAng+=$angRange) {
+        ### Rotate the protein around the x axis ###############################
+
+
+        ### Add the principal axis for publication #############################
+#        if ($angRange == 90 && $xRotAng == 0) {
+#            my %geoCenter = getGeoCenter($rotAtomIdsRef, $atomCoordsRef);
+#            my $residue   = $$atomCoordsRef[-1]{'residue'};
+#            my $serial    = $$atomCoordsRef[-1]{'serial'};
+#            for (my $x=$geoCenter{'cooX'}-5; $x<$geoCenter{'cooX'}+5; $x+=1) {
+#                my %dummyCoords = ('cooX' => $x,
+#                                   'cooY' => $geoCenter{'cooY'},
+#                                   'cooZ' => $geoCenter{'cooZ'});
+#                push(@{$atomCoordsRef}, setCgAtom(++$residue, 'LIN', 'LIN', ++$serial, \%dummyCoords));
+#            }
+#        }
+        ########################################################################
+
+        my @rotatedCoords = @{$atomCoordsRef};
+        @rotatedCoords = rotateAroundVec($atomCoordsRef, \%xRotAxis, $rotPointRef, $xRotAng) unless $xRotAng == 0;
+        ########################################################################
+
+        for (my $yRotAng=$yStart; $yRotAng<=$yEnd; $yRotAng+=$angRange) {
+            ### Rotate the protein around the y axis ###########################
+            my @rotatedCoords2 = @rotatedCoords;
+            @rotatedCoords2 = rotateAroundVec(\@rotatedCoords, \%yRotAxis, $rotPointRef, $yRotAng) unless $yRotAng == 0;
+            ####################################################################
+
+
+            ### Build the rotated CG model #####################################
+            my %rotProtData;
+            $rotProtData{'box'}    = $cgProtData{'box'};
+            $rotProtData{'nAtoms'} = (scalar(@rotatedCoords2) - 1);
+            $rotProtData{'title'}  = $cgProtData{'title'};
+            $rotProtData{'atoms'}  = \@rotatedCoords2;
+
+#            my @rotProtAtomIds = getAtomIds($rotProtData{'atoms'});
+#            buildDummyPlane($rotProtData{'atoms'}, \@rotProtAtomIds, $beltZCenter, $membData{'box'});
+#            GRO::writeGro(sprintf("rotated.%02d-%02d.gro", $xRotAng, $yRotAng), \%rotProtData);
+            ####################################################################
+
+
+            ### Build protein grid #############################################
+            $gridRef = 0;
+            @tmpArray = Protein::analyze($rotAtomIdsRef,
+                                         \@rotatedCoords2);
+            $gridRef  = $tmpArray[2];
+
+            Protein::grid2GroFile($gridOutFile) if $gridOutFile; # Print grid-coordinates.
+            ####################################################################
+
+
+            ### Count the z distribution (hydrophilicity profile) ##############
+            $sliceScoreRef = getSliceScore($gridRef, $gridDeltaZ, $hsprofOutFile);
+            ####################################################################
+
+
+            ### Determine the hydophobic belts #################################
+            my %belt = detectBelts($sliceScoreRef, $gridDeltaZ, $thicknHphobicUp, $thicknHphobicLow, $thicknHphobic, $isTMProt);
+
+            next unless $belt{'score'};
+
+            $beltZCenter = $belt{'hphobCent'} * $gridDeltaZ if $belt{'hphobCent'};
+            my @rotProtAtomIds = getAtomIds($rotProtData{'atoms'});
+            buildDummyPlane($rotProtData{'atoms'}, \@rotProtAtomIds, $beltZCenter, $membData{'box'});
+            $rotProtData{'nAtoms'} = (scalar(@{$rotProtData{'atoms'}}) - 1);
+            GRO::writeGro(sprintf("rotated.%02d-%02d.gro", $xRotAng, $yRotAng), \%rotProtData);
+
+
+            my %tmpHash = ('xRotAng' => $xRotAng, 'yRotAng' => $yRotAng, 'score' => $belt{'score'});
+            %absMinScore = %tmpHash if $absMinScore{'score'} > $belt{'score'};
+            push(@minScores, \%tmpHash);
+
+            print ANGFILE "$xRotAng $yRotAng $belt{'score'}\n";
+            print "  MinScore: " . $belt{'score'} . " (x = $xRotAng, y = $yRotAng)" if $main::verbose;
+            print " (Abs. MinScore = " . $absMinScore{'score'} . " (x = " . $absMinScore{'xRotAng'} . ", y = " . $absMinScore{'yRotAng'} . "))\n" if $main::verbose;
+            undef %belt;
+#            print "    Abs. MinScore: " . $minHs{'score'}  . " x = $minHs{'xRotAng'}, y = $minHs{'yRotAng'}\n";
+
+            ####################################################################
+        }
+    }
+    close(ANGFILE);
+    ############################################################################
+
+
+    ### Sort all found least scores (ASC) ######################################
+    return unless @minScores;
+    my @sortedMinScores = sort { $a->{'score'} <=> $b->{'score'} } @minScores;
+    my $minScore = int($sortedMinScores[0]{'score'});
+    foreach (@sortedMinScores) {
+        next if int($$_{'score'}) > $minScore;
+#        print "-> Going deeper with score " . $$_{'score'} . " at x = $$_{'xRotAng'}, y = $$_{'yRotAng'} (angle range $angRange)\n";
+        recRotXY2MinScore($rotAtomIdsRef, $atomCoordsRef, $rotPointRef, $$_{'xRotAng'}, $$_{'yRotAng'}, $angRange/2, $angRangeLimit);
+#        print "<- Going higher with score " . $$_{'score'} . " at x = $$_{'xRotAng'}, y = $$_{'yRotAng'} (angle range $angRange)\n";
+    }
+    ############################################################################
+}
+
+
+
+sub getAtomIdsByResname {
+    my $atomDataRef  = shift;
+    my $resnameRegex = shift;
+
+    my @atomIds;
+
+    for (my $i=1; $i<@{$atomDataRef}; $i++) {
+        push(@atomIds, $i) if $$atomDataRef[$i]{'resName'} =~ /$resnameRegex/;
+    }
+    return @atomIds;
+}
+
+
+
+sub getMembZCenter {
+    my $atomDataRef = shift;
+    my $atomIdsRef  = shift;
+
+    my $membZCenter = 0;
+
+    foreach (@{$atomIdsRef}) {
+        $membZCenter += $$atomDataRef[$_]{'cooZ'};
+    }
+    return $membZCenter /= @{$atomIdsRef};
+}
+
+
+
+sub buildDummyPlane {
+    my $atomDataRef = shift;
+    my $atomIdsRef  = shift;
+    my $beltZCenter = shift;
+
+    my $residue     = $$atomDataRef[-1]{'residue'};
+    my $serial      = $$atomDataRef[-1]{'serial'};
+    my $radius      = 4;
+    my $radius2     = $radius*$radius;
+    my $gridSpacing = 0.1;
+
+    ### Detect the geometrical center and place a bead #########################
+    my %geoCenter = getGeoCenter($atomIdsRef, $atomDataRef);
+    my %dummyCoords = ('cooX' => $geoCenter{'cooX'},
+                       'cooY' => $geoCenter{'cooY'},
+                       'cooZ' => $beltZCenter);
+    push(@{$atomDataRef}, setCgAtom(++$residue, 'DUM', 'CEN', ++$serial, \%dummyCoords));
+    ############################################################################
+
+
+    ### Build the plane around the geometrical center ##########################
+    for (my $x=$geoCenter{'cooX'}-$radius; $x<=$geoCenter{'cooX'}+$radius; $x+=$gridSpacing) {
+        for (my $y=$geoCenter{'cooY'}-$radius; $y<=$geoCenter{'cooY'}+$radius; $y+=$gridSpacing) {
+            my $dx = $geoCenter{'cooX'} - $x;
+            my $dy = $geoCenter{'cooY'} - $y;
+            next if ($dx*$dx + $dy*$dy) > $radius2;
+            my %dummyCoords = ('cooX' => $x,
+                               'cooY' => $y,
+                               'cooZ' => $beltZCenter);
+            push(@{$atomDataRef}, setCgAtom(++$residue, 'DUM', 'MID', ++$serial, \%dummyCoords));
+        }
+    }
+    ############################################################################
+
+
+    ### Build the plane limiting the hydrophobic range upwards #################
+    for (my $x=$geoCenter{'cooX'}-$radius; $x<=$geoCenter{'cooX'}+$radius; $x+=$gridSpacing) {
+        for (my $y=$geoCenter{'cooY'}-$radius; $y<=$geoCenter{'cooY'}+$radius; $y+=$gridSpacing) {
+            my $dx = $geoCenter{'cooX'} - $x;
+            my $dy = $geoCenter{'cooY'} - $y;
+            next if ($dx*$dx + $dy*$dy) > $radius2;
+            my %dummyCoords = ('cooX' => $x,
+                               'cooY' => $y,
+                               'cooZ' => $beltZCenter+$thicknHphobicUp);
+            push(@{$atomDataRef}, setCgAtom(++$residue, 'DUM', 'UPP', ++$serial, \%dummyCoords));
+        }
+    }
+    ############################################################################
+
+
+    ### Build the plane limiting the hydrophobic range downwards ###############
+    for (my $x=$geoCenter{'cooX'}-$radius; $x<=$geoCenter{'cooX'}+$radius; $x+=$gridSpacing) {
+        for (my $y=$geoCenter{'cooY'}-$radius; $y<=$geoCenter{'cooY'}+$radius; $y+=$gridSpacing) {
+            my $dx = $geoCenter{'cooX'} - $x;
+            my $dy = $geoCenter{'cooY'} - $y;
+            next if ($dx*$dx + $dy*$dy) > $radius2;
+            my %dummyCoords = ('cooX' => $x,
+                               'cooY' => $y,
+                               'cooZ' => $beltZCenter-$thicknHphobicLow);
+            push(@{$atomDataRef}, setCgAtom(++$residue, 'DUM', 'LOW', ++$serial, \%dummyCoords));
+        }
+    }
+    ############################################################################
+}
+
+
+
+sub vSub {
+    my %vecDiff = ('cooX' => $_[0]{'cooX'} - $_[1]{'cooX'},
+                   'cooY' => $_[0]{'cooY'} - $_[1]{'cooY'},
+                   'cooZ' => $_[0]{'cooZ'} - $_[1]{'cooZ'});
+    return %vecDiff;
+}
+
+
+
+sub vLen {
+    return sqrt($_[0]{'cooX'}*$_[0]{'cooX'} + $_[0]{'cooY'}*$_[0]{'cooY'} + $_[0]{'cooZ'}*$_[0]{'cooZ'});
+}
+
+
+
+sub vNorm {
+    my $vecLen  = vLen($_[0]);
+    my %vecNorm = ('cooX' => $_[0]{'cooX'}/$vecLen,
+                   'cooY' => $_[0]{'cooY'}/$vecLen,
+                   'cooZ' => $_[0]{'cooZ'}/$vecLen);
+    return %vecNorm;
+}
+
+
+
+sub vXprod {
+    my %vecXprod = ('cooX' => $_[0]{'cooY'} * $_[1]{'cooZ'} - $_[0]{'cooZ'} * $_[1]{'cooY'},
+                    'cooY' => $_[0]{'cooZ'} * $_[1]{'cooX'} - $_[0]{'cooX'} * $_[1]{'cooZ'},
+                    'cooZ' => $_[0]{'cooX'} * $_[1]{'cooY'} - $_[0]{'cooY'} * $_[1]{'cooX'});
+    return %vecXprod;
+}
+
+
+
+sub vDotprod {
+    return ($_[0]{'cooX'} * $_[1]{'cooX'} + $_[0]{'cooY'} * $_[1]{'cooY'} + $_[0]{'cooZ'} * $_[1]{'cooZ'});
+}
+
+
+
+sub rotateAroundVec {
+    my $coordDataRef = shift;
+    my $rotAxisRef   = shift;
+    my $rotPointRef  = shift;
+    my $rotAngle     = shift;
+
+    my @coordData    = @$coordDataRef;
+    my %rotatAxis    = vSub($rotAxisRef, $rotPointRef); # Set the rotational point to 0.
+    my %unitVecZ     = vNorm(\%rotatAxis); # -> Get unit vector z; For rotation around this axis.
+    my @rotatedCoords;
+
+
+    ### Find the direction (x,y,z) of the vector with the lowest value.
+    my $minComponent = 'cooX';
+    if ($unitVecZ{'cooY'} <  $unitVecZ{'cooX'} && $unitVecZ{'cooY'} <  $unitVecZ{'cooZ'}) {
+        $minComponent = 'cooY';
+    }
+    elsif ($unitVecZ{'cooZ'} <  $unitVecZ{'cooX'} && $unitVecZ{'cooZ'} <  $unitVecZ{'cooY'}) {
+        $minComponent = 'cooZ';
+    }
+    my %tmpVector = ('cooX' => 0,
+                     'cooY' => 0,
+                     'cooZ' => 0);
+    $tmpVector{$minComponent} = 1;
+
+
+    ### Calculate the second and third basis vector (unit vectors x and y).
+    my %crossGetY = vXprod(\%unitVecZ, \%tmpVector); # Calculate the CrossProduct to get the direction of Y.
+    my %unitVecY  = vNorm(\%crossGetY); # -> Get unit vector y.
+    my %unitVecX  = vXprod(\%unitVecY, \%unitVecZ); # -> Get unit vector x.
+
+
+    ### Build the new orthonormal system (and check it).
+    my @newOrthoSys = (\%unitVecX, \%unitVecY, \%unitVecZ); # New Base with rotational axis = z.
+
+#    my $toler2Zero = 1e-6;
+#    my $chkOrthoXY = dot_prod(\@unitVecX, \@unitVecY);
+#    my $chkOrthoXZ = dot_prod(\@unitVecX, \@unitVecZ);
+#    my $chkOrthoYZ = dot_prod(\@unitVecY, \@unitVecZ);
+#    if (abs($chkOrthoXY) > $toler2Zero or abs($chkOrthoXZ) > $toler2Zero or abs($chkOrthoYZ) > $toler2Zero) {
+#        die "ERROR: Cannot build orthogonal system for the rotation.\n".
+#            "Unit vector x = (".join(", ", @unitVecX)."),\n".
+#            "unit vector y = (".join(", ", @unitVecY)."),\n".
+#            "unit vector z = (".join(", ", @unitVecZ).")\n";
+#    }
+
+
+    #####################################################
+    ### Rotation ########################################
+    #####################################################
+    my $angCos = cos(deg2rad($rotAngle));
+    my $angSin = sin(deg2rad($rotAngle));
+
+    for (my $atomId=1; $atomId<@coordData; $atomId++) {
+        my %coordCenter = vSub($coordData[$atomId], $rotPointRef);
+        my $radiusX     = vDotprod(\%unitVecX, \%coordCenter);
+        my $radiusY     = vDotprod(\%unitVecY, \%coordCenter);
+        my $compouZ     = vDotprod(\%unitVecZ, \%coordCenter);
+
+        my $coeffiX = $radiusX*$angCos - $radiusY*$angSin;
+        my $coeffiY = $radiusX*$angSin + $radiusY*$angCos;
+        my @coeffiMat = ($coeffiX, $coeffiY, $compouZ); # z is the rotational axis.
+
+        my %tmpRotated = ('cooX' => 0,
+                          'cooY' => 0,
+                          'cooZ' => 0);
+        for (my $k=0; $k<3; $k++) {
+            $tmpRotated{'cooX'} += $coeffiMat[$k]*$newOrthoSys[$k]{'cooX'};
+            $tmpRotated{'cooY'} += $coeffiMat[$k]*$newOrthoSys[$k]{'cooY'};
+            $tmpRotated{'cooZ'} += $coeffiMat[$k]*$newOrthoSys[$k]{'cooZ'};
+        }
+
+        ### Translate back ##############################
+        foreach my $key (keys %{$coordData[$atomId]}) {
+            $rotatedCoords[$atomId]{$key} = $coordData[$atomId]{$key};
+        }
+        $rotatedCoords[$atomId]{'cooX'} = $tmpRotated{'cooX'} + $$rotPointRef{'cooX'};
+        $rotatedCoords[$atomId]{'cooY'} = $tmpRotated{'cooY'} + $$rotPointRef{'cooY'};
+        $rotatedCoords[$atomId]{'cooZ'} = $tmpRotated{'cooZ'} + $$rotPointRef{'cooZ'};
+    }
+    return @rotatedCoords;
+}
+
+
+################################################################################
+### Subroutines ################################################################
+################################################################################
+sub getAtomIds {
+    my $coordsRef = shift;
+    my @atomIds;
+    for (my $i=0; $i<@{$coordsRef}; $i++) {
+        push(@atomIds, $i) if $$coordsRef[$i]{'resId'};
+    }
+    return @atomIds;
+}
+
+
+
+sub centerGroup {
+    my $atomIdsRef = shift;
+    my $coordsRef  = shift;
+    my $boxRef     = shift;
+
+    my %groupGeoCenter = getGeoCenter($atomIdsRef, $coordsRef);
+    my %translVector = ('cooX' => ($$boxRef{'cooX'}*0.5-$groupGeoCenter{'cooX'}),
+                        'cooY' => ($$boxRef{'cooY'}*0.5-$groupGeoCenter{'cooY'}));
+    foreach (@{$atomIdsRef}) {
+        $$coordsRef[$_]{'cooX'} += $translVector{'cooX'};
+        $$coordsRef[$_]{'cooY'} += $translVector{'cooY'};
+    }
+}
+
+
+
+sub zTranslateGroup {
+    my $atomIdsRef = shift;
+    my $coordsRef  = shift;
+    my $zTranslVec = shift;
+
+    foreach (@{$atomIdsRef}) {
+        $$coordsRef[$_]{'cooZ'} += $zTranslVec;
+    }
+}
+
+
+
+sub translateGroup {
+    my $atomIdsRef = shift;
+    my $coordsRef  = shift;
+    my $xTranslVec = shift;
+    my $yTranslVec = shift;
+    my $zTranslVec = shift;
+
+    foreach (@{$atomIdsRef}) {
+        $$coordsRef[$_]{'cooX'} += $xTranslVec;
+        $$coordsRef[$_]{'cooY'} += $yTranslVec;
+        $$coordsRef[$_]{'cooZ'} += $zTranslVec;
+    }
+}
+
+
+
+sub combGroData {
+    my $protGroDataRef = shift;
+    my $membGroDataRef = shift;
+    my %combGroData;
+
+    foreach (@{$$protGroDataRef{'atoms'}}) {
+        next unless $$_{'resId'};
+        push(@{$combGroData{'atoms'}}, $_);
+    }
+
+    foreach (@{$$membGroDataRef{'atoms'}}) {
+        next unless $$_{'resId'};
+        push(@{$combGroData{'atoms'}}, $_);
+    }
+
+    $combGroData{'title'}       = $$protGroDataRef{'title'} . ' + ' . $$membGroDataRef{'title'};
+    $combGroData{'nAtoms'}      = @{$combGroData{'atoms'}};
+    $combGroData{'box'}{'cooX'} = $$membGroDataRef{'box'}{'cooX'};
+    $combGroData{'box'}{'cooY'} = $$membGroDataRef{'box'}{'cooY'};
+    $combGroData{'box'}{'cooZ'} = $$protGroDataRef{'box'}{'cooZ'} > $$membGroDataRef{'box'}{'cooZ'} ? $$protGroDataRef{'box'}{'cooZ'} : $$membGroDataRef{'box'}{'cooZ'};
+
+    return %combGroData;
+}
+
+
+
+sub getBilayerThickness {
+    my $coordsRef     = shift;
+    my $headGroupsRef = shift;
+    my @resAtoms;
+    my @geoCenterHeads;
+    my @lowerLeafletResIds;
+    my @upperLeafletResIds;
+    my %upperLeaflGeoCenter;
+    my %lowerLeaflGeoCenter;
+    my $bilayerThickness;
+
+    print "  ---------------------------------\n  Detect bilayer thickness...\r";
+
+    my %bilayerGeoCenter = getGeoCenter($headGroupsRef, $coordsRef);
+#    printf("\nx %f and y %f and z %f\n", $bilayerGeoCenter{'cooX'}*10, $bilayerGeoCenter{'cooY'}*10, $bilayerGeoCenter{'cooZ'}*10);
+
+    ### Group head group atoms per residue #####################################
+    for (my $i=0; $i<@{$headGroupsRef}; $i++) {
+        my $atomId = $$headGroupsRef[$i];
+        next unless $$coordsRef[$atomId]{'resId'};
+        push(@{$resAtoms[$$coordsRef[$atomId]{'resId'}]}, $atomId);
+    }
+    ############################################################################
+
+
+#    ### Get the amphiphilic dimensions #########################################
+#    for (my $resId=0; $resId<@resAtoms; $resId++) {
+#        next unless $resAtoms[$resId];
+#        %{$geoCenterHeads[$resId]} = getGeoCenter($resAtoms[$resId], $coordsRef);
+#        $geoCenterHeads[$resId]{'cooZ'} < $bilayerGeoCenter{'cooZ'} ?
+#            push(@lowerLeafletResIds, $resId) :
+#            push(@upperLeafletResIds, $resId);
+#    }
+#    printf("\n    nLipids upper leaflet: %4d", scalar(@upperLeafletResIds)) if $main::verbose;
+#    printf("\n    nLipids lower leaflet: %4d", scalar(@lowerLeafletResIds)) if $main::verbose;
+#    ############################################################################
+    exit;
+
+
+    ### Get the geometrical center of each headgroup per leaflet ###############
+    for (my $resId=0; $resId<@resAtoms; $resId++) {
+        next unless $resAtoms[$resId];
+        %{$geoCenterHeads[$resId]} = getGeoCenter($resAtoms[$resId], $coordsRef);
+        $geoCenterHeads[$resId]{'cooZ'} < $bilayerGeoCenter{'cooZ'} ?
+            push(@lowerLeafletResIds, $resId) :
+            push(@upperLeafletResIds, $resId);
+    }
+    printf("\n    nLipids upper leaflet: %4d", scalar(@upperLeafletResIds)) if $main::verbose;
+    printf("\n    nLipids lower leaflet: %4d", scalar(@lowerLeafletResIds)) if $main::verbose;
+    ############################################################################
+
+
+    ### Get the geometrical center of all leaflet-headgroups ###################
+    %upperLeaflGeoCenter = getGeoCenter(\@upperLeafletResIds, \@geoCenterHeads);
+    %lowerLeaflGeoCenter = getGeoCenter(\@lowerLeafletResIds, \@geoCenterHeads);
+    $bilayerThickness    = $upperLeaflGeoCenter{'cooZ'} - $lowerLeaflGeoCenter{'cooZ'};
+#    printf("Upper :: x %f and y %f and z %f\n", $upperLeaflGeoCenter{'cooX'}*10, $upperLeaflGeoCenter{'cooY'}*10, $upperLeaflGeoCenter{'cooZ'}*10);
+#    printf("Lower :: x %f and y %f and z %f\n", $lowerLeaflGeoCenter{'cooX'}*10, $lowerLeaflGeoCenter{'cooY'}*10, $lowerLeaflGeoCenter{'cooZ'}*10);
+    printf("\n    Averaged bilayer thickness: %f\n", $bilayerThickness) if $main::verbose;
+    ############################################################################
+
+    print "  Detect bilayer thickness: Finished\n  ---------------------------------\n\n";
+
+#    return(4, $bilayerGeoCenter{'cooZ'});
+#    return($bilayerThickness, $bilayerGeoCenter{'cooZ'});
+}
+
+
+
+sub selectGroupIds {
+    my $ndxDataRef    = shift;
+    my $groupNameText = shift;
+    my $nGroups       = shift;
+    my @selectGroupIds;
+
+    $nGroups = 10000 unless $nGroups; # Set the limit of selectable groups to 10000.
+
+    print "\n  Select a group for $groupNameText: > ";
+
+    chomp(my $groupId = <STDIN>);
+    while (!scalar(@selectGroupIds) || $groupId ne 'q') {
+        if ($groupId =~ /^\s*(\d+)?\s*$/ && $$ndxDataRef[$1]{'groupName'}) {
+            push(@selectGroupIds, $1);
+            print "    Added group $1.\n";
+            return @selectGroupIds if scalar(@selectGroupIds) == $nGroups;
+            print "  Do you want to select another group? (\'q\' for quit) > ";
+        }
+        else {
+            print "    Invalid group...\n  Please try to select a group for $groupNameText again (\'q\' for quit): > ";
+        }
+        chomp($groupId = <STDIN>);
+    }
+    return @selectGroupIds;
+}
+
+
+
+sub getSliceScore {
+    my $gridRef       = shift;
+    my $gridDeltaZ    = shift;
+    my $hsprofOutFile = shift;
+
+    my @sliceScore;
+    
+    ### Count z-distribution ###################################################
+    my $finalZCoord = 0;
+    for (my $z=0; $z<@$gridRef; $z++) {
+        $finalZCoord = $z;
+        next unless $$gridRef[$z];
+#        $sliceScore[$z] = 0;
+        my $nVoxel = 0;
+        for (my $x=0; $x<@{$$gridRef[$z]}; $x++) {
+            next unless $$gridRef[$z][$x];
+            for (my $y=0; $y<@{$$gridRef[$z][$x]}; $y++) {
+                next unless $$gridRef[$z][$x][$y];
+                if ($$gridRef[$z][$x][$y]{'type'} eq 'SUR') {
+                    $sliceScore[$z] += $$gridRef[$z][$x][$y]{'sum'};
+                    $nVoxel++;
+                }
+            }
+        }
+        next unless $nVoxel;
+        $sliceScore[$z] /= $nVoxel; # Score depends on the number of surface voxels taken into account.
+#        printf("%d %6.3f\n", $z, $sliceScore[$z]);
+    }
+    ############################################################################
+
+
+    ### Print out the z-distribution (hydrophilicity profile) ##################
+    hsprof2File(\@sliceScore, $gridDeltaZ, $finalZCoord, $hsprofOutFile) if $hsprofOutFile;
+    ############################################################################
+
+    return \@sliceScore;
+}
+
+
+
+sub hsprof2File {
+    my $sliceScoreRef = shift;
+    my $gridDeltaZ    = shift;
+#    my $contProtRef    = shift;
+    my $finalZCoord   = shift;
+    my $hsprofOutFile = shift;
+
+    open(HSPROF, ">$hsprofOutFile") || die "ERROR: Cannot open hydrophilicity score output file \"$hsprofOutFile\": $!\n";
+    for (my $z=$finalZCoord; $z>=0; $z--) {
+        printf HSPROF ("%.3f", $z*$gridDeltaZ);
+        if (defined $$sliceScoreRef[$z]) {
+            my $tmpZCounter = $$sliceScoreRef[$z];
+            printf HSPROF (" %f", $tmpZCounter);
+        }
+        print HSPROF "\n";
+    }
+    close(HSPROF);
+}
+
+
+
+sub detectBelts {
+    my $sliceScoreRef  = shift;
+    my $gridDeltaZ     = shift;
+    my $thicknHphilUp  = shift;
+    my $thicknHphilLow = shift;
+    my $thicknHphob    = shift;
+    my $isTMProt       = shift;
+
+    my @sliceScore = @$sliceScoreRef;
+    my $hphilUpGridRange   = round(($thicknHphilUp / $gridDeltaZ), 1);
+    my $hphilLowGridRange  = round(($thicknHphilLow / $gridDeltaZ), 1);
+    my $hphobGridRangeHalf = round(($thicknHphob / $gridDeltaZ), 1) / 2;
+
+    my %belt;
+
+    ### Detect hydrophobic belts ###############################################
+    my $zLimitMin = 0;
+    my $zLimitMax = scalar(@sliceScore);
+    $zLimitMin += ($hphobGridRangeHalf + $hphilLowGridRange) if $isTMProt;
+    $zLimitMax -= ($hphobGridRangeHalf + $hphilUpGridRange)  if $isTMProt;
+
+#    open(BELTFILE, ">>belt.dat") || die "ERROR: Cannot open \"belt.dat\": $!\n";
+
+    for (my $z=$zLimitMin; $z<$zLimitMax; $z++) {
+        next unless defined $sliceScore[$z]; # If this slice does not contain protein.
+        my $hphobRangeMin = $z - $hphobGridRangeHalf;
+        my $hphobRangeMax = $z + $hphobGridRangeHalf;
+        my $beltScore;
+
+        for (my $z2=$hphobRangeMin; $z2<=$hphobRangeMax; $z2++) {
+            unless (defined $sliceScore[$z2]) {
+                $z2 = $hphobRangeMax + 1; # Jump out if the protein is broken.
+                next;
+            }
+            $beltScore += $sliceScore[$z2];
+        }
+#        print "    $beltScore\n" if defined $beltScore;
+
+        if (!defined $belt{'score'} || $beltScore < $belt{'score'}) {
+            %belt = ('score'     => $beltScore,
+                     'hphobCent' => $z,
+                     'hphobMin'  => $hphobRangeMin,
+                     'hphobMax'  => $hphobRangeMax);
+        }
+
+
+        ### Remember the minimum score parameter set ###########################
+#        if ($beltScore && $beltScore < $minHs{'score'}) {
+#            $minHs{'score'}   = $beltHash{$hphobRangeMin . "-" . $hphobRangeMax};
+#            $minHs{'xRotAng'} = $xRotAng;
+#            $minHs{'yRotAng'} = $yRotAng;
+#            $minHs{'hphobRangeMin'} = $hphobRangeMin;
+#            $minHs{'hphobRangeMax'} = $hphobRangeMax;
+#            $minHs{'hphobRangeCen'} = $z;
+#        }
+        ########################################################################
+
+#        if (defined $beltScore) {
+#            printf("Least score: %9.3f (x=%2d, y=%2d) at z >= %7.3f and z <= %7.3f (Angstrom)", $beltScore, $xRotAng, $yRotAng, $hphobRangeMin*$gridDeltaZ*10, $hphobRangeMax*$gridDeltaZ*10);
+#            printf(" :: Found minimum: %9.3f (x=%2d, y=%2d) at z >= %7.3f and z <= %7.3f", $belt{'score'}, $hphobRangeMin*$gridDeltaZ*10, $hphobRangeMax*$gridDeltaZ*10) if $hphobRangeMax;
+#            print "\n";
+#            printf BELTFILE ("Least score: %9.3f (x=%2d, y=%2d) at z >= %7.3f and z <= %7.3f", $beltScore, $xRotAng, $yRotAng, $hphobRangeMin*$gridDeltaZ*10, $hphobRangeMax*$gridDeltaZ*10);
+#            printf BELTFILE (" :: Found minimum: %9.3f (x=%2d, y=%2d) at z >= %7.3f and z <= %7.3f\n", $minHs{'score'}, $minHs{'xRotAng'}, $minHs{'yRotAng'}, $minHs{'hphobRangeMin'}*$gridDeltaZ*10, $minHs{'hphobRangeMax'}*$gridDeltaZ*10) if $minHs{'hphobRangeMin'};
+#        }
+    }
+
+    printf("Found hydrophobic belt (LS = %9.3f) at z >= %7.3f and z <= %7.3f (Angstrom)\n", $belt{'score'}, $belt{'hphobMin'}*$gridDeltaZ*10, $belt{'hphobMax'}*$gridDeltaZ*10) if defined $belt{'score'};
+
+#    close(BELTFILE);
+    ############################################################################
+
+    return (%belt);
+}
+
+
+
+sub round {
+    my ( $num, $prec ) = @_;
+    return int( $num / $prec + 0.5 - ( $num < 0 ) ) * $prec;
+}
+
+
+
+sub buildCgProt {
+    my $coordDataRef = shift;
+    my @resAtoms;
+    my @cgCoords;
+
+    ### Group residue atoms ################################
+    for (my $atomId=1; $atomId<@{$coordDataRef}; $atomId++) {
+        next unless $$coordDataRef[$atomId]{'residue'};
+        push(@{$resAtoms[ $$coordDataRef[$atomId]{'residue'} ]}, $atomId);
+    }
+    ########################################################
+
+
+    ### Get CG-coordinates #################################
+    for (my $residue=0; $residue<@resAtoms; $residue++) {
+        next unless $resAtoms[$residue];
+        my %resGeoCenter = getGeoCenter($resAtoms[$residue], $coordDataRef);
+        my $resName = 'UNC';
+        $resName = 'CHA' if $$coordDataRef[ $resAtoms[$residue][0] ]{'resName'} =~ /ARG|HIS|LYS|ASP|GLU/;
+#        $cgCoords[$residue] = setCgAtom($residue, $resName, $$coordDataRef[ $resAtoms[$residue][0] ]{'resName'}, $residue, \%resGeoCenter);
+        $cgCoords[$residue] = setCgAtom($residue, $resName, 'CGA', $residue, \%resGeoCenter);
+    }
+    ########################################################
+
+    return \@cgCoords;
+}
+
+
+
+sub setCgAtom {
+    my $residue   = shift;
+    my $resName   = shift;
+    my $atomName  = shift;
+    my $serial    = shift;
+    my $coordsRef = shift;
+    my %cgDummyAtom = ('residue'  => $residue,
+                       'resId'    => $residue,
+                       'resName'  => $resName,
+                       'atomName' => $atomName,
+                       'serial'   => $serial,
+                       'cooX'     => $$coordsRef{'cooX'},
+                       'cooY'     => $$coordsRef{'cooY'},
+                       'cooZ'     => $$coordsRef{'cooZ'});
+    return \%cgDummyAtom;
+}
+
+
+
+sub getGeoCenter {
+    my $atomIdsRef = shift;
+    my $coordsRef  = shift;
+    my %geoCenter  = ('cooX' => 0,
+                      'cooY' => 0,
+                      'cooZ' => 0);
+
+    foreach (@{$atomIdsRef}) {
+        $geoCenter{'cooX'} += $$coordsRef[$_]{'cooX'};
+        $geoCenter{'cooY'} += $$coordsRef[$_]{'cooY'};
+        $geoCenter{'cooZ'} += $$coordsRef[$_]{'cooZ'};
+    }
+    $geoCenter{'cooX'} /= scalar(@{$atomIdsRef});
+    $geoCenter{'cooY'} /= scalar(@{$atomIdsRef});
+    $geoCenter{'cooZ'} /= scalar(@{$atomIdsRef});
+    return %geoCenter;
+}
+
+
+
+sub renumAtoms {
+    my @renumAtoms;
+    my $atomId = 0;
+    foreach (@{$_[0]}) {
+        next unless $$_{'resId'};
+        $renumAtoms[++$atomId] = $_;
+    }
+    return \@renumAtoms;
+}
+############################################################
+
+
+
+### Principal axis part ########################################################
+package PrincA;
+
+
+sub calcXcm {
+    my $coordsRef = shift;
+    my $tm = 0;
+    my %xcmVec = ('cooX' => 0,
+                  'cooY' => 0,
+                  'cooZ' => 0);
+
+    for (my $i=0; $i<@{$coordsRef}; $i++) {
+        next unless $$coordsRef[$i]{'cooX'};
+        $tm++; # NOTE: For detecting protein symmetry the mass does not matter. All atoms have the same mass (1).
+        $xcmVec{'cooX'} += $$coordsRef[$i]{'cooX'};
+        $xcmVec{'cooY'} += $$coordsRef[$i]{'cooY'};
+        $xcmVec{'cooZ'} += $$coordsRef[$i]{'cooZ'};
+    }
+
+    $xcmVec{'cooX'} /= $tm;
+    $xcmVec{'cooY'} /= $tm;
+    $xcmVec{'cooZ'} /= $tm;
+
+    return %xcmVec;
+}
+
+
+sub rvecDec {
+  my $vecARef = shift;
+  my $vecBRef = shift;
+  $$vecARef{'cooX'} -= $$vecBRef{'cooX'};
+  $$vecARef{'cooY'} -= $$vecBRef{'cooY'};
+  $$vecARef{'cooZ'} -= $$vecBRef{'cooZ'};
+}
+
+
+sub princComp {
+#(int n,atom_id index[],t_atom atom[],rvec x[], matrix trans,rvec d)
+
+#  int  i,j,ai,m,nrot;
+#  real mm,rx,ry,rz;
+#  double **inten,dd[NDIM],tvec[NDIM],**ev;
+#ifdef DEBUG
+#    real e[NDIM];
+#endif
+#    real temp;
+
+#    snew(inten,NDIM);
+#    snew(ev,NDIM);
+#    for(i=0; (i<NDIM); i++) {
+#        snew(inten[i],NDIM);
+#        snew(ev[i],NDIM);
+#        dd[i]=0.0;
+##ifdef DEBUG
+#        e[i]=0.0;
+##endif
+#    }
+#
+#    for(i=0; (i<NDIM); i++)
+#        for(m=0; (m<NDIM); m++)
+#            inten[i][m]=0;
+#
+#    for(i=0; (i<n); i++) {
+#        ai=index[i];
+#        mm=atom[ai].m;
+#        rx=x[ai][XX];
+#        ry=x[ai][YY];
+#        rz=x[ai][ZZ];
+#        inten[0][0]+=mm*(sqr(ry)+sqr(rz));
+#        inten[1][1]+=mm*(sqr(rx)+sqr(rz));
+#        inten[2][2]+=mm*(sqr(rx)+sqr(ry));
+#        inten[1][0]-=mm*(ry*rx);
+#        inten[2][0]-=mm*(rx*rz);
+#        inten[2][1]-=mm*(rz*ry);
+#    }
+#    inten[0][1]=inten[1][0];
+#    inten[0][2]=inten[2][0];
+#    inten[1][2]=inten[2][1];
+##ifdef DEBUG
+#    ptrans("initial",inten,dd,e);
+##endif
+#
+#    for(i=0; (i<DIM); i++) {
+#        for(m=0; (m<DIM); m++)
+#            trans[i][m]=inten[i][m];
+#    }
+#
+#  /* Call numerical recipe routines */
+#  jacobi(inten,3,dd,ev,&nrot);
+##ifdef DEBUG
+#  ptrans("jacobi",ev,dd,e);
+##endif
+#  
+#  /* Sort eigenvalues in ascending order */
+##define SWAPPER(i)          \
+#  if (fabs(dd[i+1]) < fabs(dd[i])) {    \
+#    temp=dd[i];         \
+#    for(j=0; (j<NDIM); j++) tvec[j]=ev[j][i];\
+#    dd[i]=dd[i+1];          \
+#    for(j=0; (j<NDIM); j++) ev[j][i]=ev[j][i+1];        \
+#    dd[i+1]=temp;           \
+#    for(j=0; (j<NDIM); j++) ev[j][i+1]=tvec[j];         \
+#  }
+#  SWAPPER(0)
+#  SWAPPER(1)
+#  SWAPPER(0)
+##ifdef DEBUG
+#  ptrans("swap",ev,dd,e);
+#  t_trans(trans,dd,ev);
+##endif
+#    
+#  for(i=0; (i<DIM); i++) {
+#    d[i]=dd[i];
+#    for(m=0; (m<DIM); m++)
+#      trans[i][m]=ev[m][i];
+#  }
+#    
+#  for(i=0; (i<NDIM); i++) {
+#    sfree(inten[i]);
+#    sfree(ev[i]);
+#  }
+#  sfree(inten);
+#  sfree(ev);
+#}
+}
+
+
+#        orient_princ(&atoms,isize,index,natom,x,bHaveV ? v : NULL, NULL);
+sub orientPrinc {
+    my $coordsRef = shift;
+#    (t_atoms *atoms,int isize,atom_id *index, int natoms, rvec x[], rvec *v, rvec d)
+#  int     i,m;
+#  rvec    xcm,prcomp;
+#  matrix  trans;
+
+    my %xcmVec = calcXcm($coordsRef); # ,x,isize,index,atoms->atom,xcm,FALSE);
+    for (my $i=0; $i<@{$coordsRef}; $i++) {
+        next unless $$coordsRef[$i]{'cooX'};
+        rvecDec($$coordsRef[$i], \%xcmVec);
+    }
+    principalComp($coordsRef); # (isize,index,atoms->atom,x,trans,prcomp);
+
+#    copy_rvec(prcomp, d) if (d);
+
+
+    ### Check whether this trans matrix mirrors the molecule ###################
+#    if (det(trans) < 0) {
+#        for(m=0; (m<DIM); m++) {
+#            trans[ZZ][m] = -trans[ZZ][m];
+#        }
+#    }
+#    rotate_atoms(natoms,NULL,x,trans);
+#    if (v) rotate_atoms(natoms,NULL,v,trans);
+#
+#    for(i=0; i<natoms; i++) {
+#        rvec_inc(x[i],xcm);
+#    }
+}
+################################################################################
