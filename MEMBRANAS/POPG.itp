@@ -1,0 +1,301 @@
+;; POPG topology based on topology from Zhao et al., Biophys. J. 2007 
+;; D-POPG and L-POPG are built up separately according to their chiralities with C4(see the molecular
+;; structure for labeling)
+;; 
+;;
+; Please cite:
+; Kukol, A (2009), Lipid Models for United-Atom Molecular Dynamics Simulations of Proteins, 
+; J Chem Theo Comput, available from http://pubs.acs.org/journal/jctcce, DOI: 10.1021/ct8003468
+; ---------------------------
+; the dihedral phi2 (include multiplicity zero) was expressed as Ryckaert-Belleman function
+; for compatibility with Gromacs 4.x
+; AK (2/6/2009)
+
+[ moleculetype ]
+; Name   nrexcl
+DPOPG     3
+ 
+[ atoms ]
+;   nr    type   resnr  residu    atom    cgnr        charge          mass
+     1      H        1   DPOPG      H1       0         0.4170    1.0080	; qtot:0.36    
+     2      OA       1   DPOPG      O2       0        -0.5740   15.9994	; qtot:0.72 
+     3     CH2       1   DPOPG      C3       0         0.1570   14.0270	; qtot:1.08 
+     4     CH1       1   DPOPG      C4       1         0.1570   13.0190 ; qtot:0.76 
+     5      OA       1   DPOPG      O5       1        -0.5740   15.9994	; qtot:1.0 
+     6      H        1   DPOPG      H6       1         0.4170    1.0080	; qtot:1.0 
+     7     CH2       1   DPOPG      C7       2	       0.4000   14.0270 ;
+     8      OE       1   DPOPG      O8       2        -0.800    15.9994	; qtot:0.54 
+     9      P        1   DPOPG      P9       2         1.700    30.9738	; qtot:2.3 
+    10      OM       1   DPOPG     O10       2        -0.800    15.9994	; qtot:1.5 
+    11      OM       1   DPOPG     O11       2        -0.800    15.9994	; qtot:0.7 
+    12      OE       1   DPOPG     O12       2        -0.700    15.9994	; qtot:0 
+    13     CH2       1   DPOPG     C13       3         0.400    14.0270	; qtot:0.08 
+    14     CH1       1   DPOPG     C14       3         0.300    13.0190	; qtot:0.52 
+    15      OE       1   DPOPG     O15       3        -0.700    15.9994	; qtot:-0.14 
+    16     CH0       1   DPOPG     C16       3         0.7000   12.0110	; qtot:0.56 
+    17       O       1   DPOPG     O17       3        -0.700    15.9994	; qtot:0.0 
+    18     CH2       1   DPOPG     C18       4         0.0      14.0270	; qtot: 
+    19     CH2       1   DPOPG     C19       5             0    14.0270	; qtot: 
+    20     CH2       1   DPOPG     C20       6             0    14.0270	; qtot: 
+    21     CH2       1   DPOPG     C21       7             0    14.0270	; qtot: 
+    22     CH2       1   DPOPG     C22       8             0    14.0270	; qtot: 
+    23     CH2       1   DPOPG     C23       9             0    14.0270	; qtot: 
+    24     CH2       1   DPOPG     C24      10             0    14.0270	; qtot: 
+    25     CR1       1   DPOPG     C25      11             0    13.0190	; qtot: 
+    26     CR1       1   DPOPG     C26      12             0    13.0190	; qtot: 
+    27     CH2       1   DPOPG     C27      13             0    14.0270	; qtot: 
+    28     CH2       1   DPOPG     C28      14             0    14.0270	; qtot: 
+    29     CH2       1   DPOPG     C29      15             0    14.0270	; qtot: 
+    30     CH2       1   DPOPG     C30      16             0    14.0270	; qtot: 
+    31     CH2       1   DPOPG     C31      17             0    14.0270	; qtot: 
+    32     CH2       1   DPOPG     C32      18             0    14.0270	; qtot: 
+    33     CH2       1   DPOPG     C33      19             0    14.0270	; qtot: 
+    34     CH3       1   DPOPG     C34      20             0    15.0350 ; 
+    35     CH2       1   DPOPG     C35      21          0.50    14.0270	; qtot: 
+    36      OE       1   DPOPG     O36      21         -0.70    15.9994	; qtot:
+    37     CH0       1   DPOPG     C37      21          0.80    12.0110	; qtot: 
+    38       O       1   DPOPG     O38      21         -0.60    15.9994	; qtot: 
+    39     CH2       1   DPOPG     C39      22             0    14.0270	; qtot: 
+    40     CH2       1   DPOPG     C40      23             0    14.0270	; qtot: 
+    41     CH2       1   DPOPG     C41      24             0    14.0270	; qtot: 
+    42     CH2       1   DPOPG     C42      25             0    14.0270	; qtot: 
+    43     CH2       1   DPOPG     C43      26             0    14.0270	; qtot: 
+    44     CH2       1   DPOPG     C44      27             0    14.0270	; qtot: 
+    45     CH2       1   DPOPG     C45      28             0    14.0270	; qtot: 
+    46     CH2       1   DPOPG     C46      29             0    14.0270	; qtot: 
+    47     CH2       1   DPOPG     C47      30             0    14.0270	; qtot: 
+    48     CH2       1   DPOPG     C48      31             0    14.0270	; qtot: 
+    49     CH2       1   DPOPG     C49      32             0    14.0270	; qtot: 
+    50     CH2       1   DPOPG     C50      33             0    14.0270	; qtot: 
+    51     CH2       1   DPOPG     C51      34             0    14.0270	; qtot: 
+    52     CH2       1   DPOPG     C52      35             0    14.0270	; qtot: 
+    53     CH3       1   DPOPG     C53      36             0    15.0350	; qtot: 
+ 
+
+[ bonds ]
+;  ai         aj     funct
+       7       8       2   gb_18
+       8       9       2   gb_28
+       9      10       2   gb_24
+       9      11       2   gb_24
+       9      12       2   gb_28
+      12      13       2   gb_18
+      13      14       2   gb_27
+      14      15       2   gb_18
+      14      35       2   gb_27
+      15      16       2   gb_10
+      16      17       2   gb_5
+      16      18       2   gb_23
+      18      19       2   gb_27
+      19      20       2   gb_27
+      20      21       2   gb_27
+      21      22       2   gb_27
+      22      23       2   gb_27
+      23      24       2   gb_27
+      24      25       2   gb_27
+      25      26       2   gb_10 ; double bond
+      26      27       2   gb_27
+      27      28       2   gb_27
+      28      29       2   gb_27
+      29      30       2   gb_27
+      30      31       2   gb_27
+      31      32       2   gb_27
+      32      33       2   gb_27
+      33      34       2   gb_27
+      35      36       2   gb_18
+      36      37       2   gb_10
+      37      38       2   gb_5
+      37      39       2   gb_23
+      39      40       2   gb_27
+      40      41       2   gb_27
+      41      42       2   gb_27
+      42      43       2   gb_27
+      43      44       2   gb_27
+      44      45       2   gb_27
+      45      46       2   gb_27
+      46      47       2   gb_27
+      47      48       2   gb_27
+      48      49       2   gb_27
+      49      50       2   gb_27
+      50      51       2   gb_27
+      51      52       2   gb_27
+      52      53       2   gb_27
+       1       2       2   gb_1
+       2       3       2   gb_13
+       3       4       2   gb_27
+       4       5       2   gb_13
+       5       6       2   gb_1
+       4       7       2   gb_27
+
+[ pairs ]
+;  ai    aj funct
+    2     5     1 
+    2     7     1
+    3     8     1
+    5     8     1
+    4     9     1
+    7    10     1 
+    7    11     1 
+    7    12     1 
+    8    13     1 
+    9    14     1 
+   10    13     1 
+   11    13     1 
+   12    15     1 
+   12    35     1 
+   13    16     1 
+   13    36     1 
+   14    17     1 
+   14    18     1 
+   14    37     1 
+   15    19     1 
+   15    36     1 
+   16    20     1 
+   16    35     1
+   17    19     1
+   23    26     1    ; pair around double bond 
+   25    28     1    ; pair around double bond 
+   35    38     1 
+   35    39     1 
+   36    40     1 
+   37    41     1 
+   38    40     1 
+
+[ angles ]
+;  ai    aj    ak funct
+       4       7       8       2   ga_15
+       7       8       9       2   ga_26
+       8       9      10       2   ga_14
+       8       9      11       2   ga_14
+       8       9      12       2   ga_5
+       9      12      13       2   ga_26
+      10       9      11       2   ga_29
+      10       9      12       2   ga_14
+      11       9      12       2   ga_14
+      12      13      14       2   ga_15
+      13      14      15       2   ga_13
+      13      14      35       2   ga_13
+      14      15      16       2   ga_22
+      14      35      36       2   ga_15
+      15      14      35       2   ga_13
+      15      16      17       2   ga_31
+      15      16      18       2   ga_16
+      16      18      19       2   ga_15
+      17      16      18       2   ga_35
+      18      19      20       2   ga_15
+      19      20      21       2   ga_15
+      20      21      22       2   ga_15
+      21      22      23       2   ga_15
+      22      23      24       2   ga_15
+      23      24      25       2   ga_15
+      24      25      26       2   ga_27  ; double bond
+      25      26      27       2   ga_27  ; double bond
+      26      27      28       2   ga_15
+      27      28      29       2   ga_15
+      28      29      30       2   ga_15
+      29      30      31       2   ga_15
+      30      31      32       2   ga_15
+      31      32      33       2   ga_15
+      32      33      34       2   ga_15
+      35      36      37       2   ga_22
+      36      37      38       2   ga_31
+      36      37      39       2   ga_16
+      37      39      40       2   ga_15
+      38      37      39       2   ga_35
+      39      40      41       2   ga_15
+      40      41      42       2   ga_15
+      41      42      43       2   ga_15
+      42      43      44       2   ga_15
+      43      44      45       2   ga_15
+      44      45      46       2   ga_15
+      45      46      47       2   ga_15
+      46      47      48       2   ga_15
+      47      48      49       2   ga_15
+      48      49      50       2   ga_15
+      49      50      51       2   ga_15
+      50      51      52       2   ga_15
+      51      52      53       2   ga_15
+       1       2       3       2   ga_12
+       2       3       4       2   ga_13
+       3       4       5       2   ga_13
+       4       5       6       2   ga_12
+       5       4       7       2   ga_13
+       3       4       7       2   ga_13
+       4       7       8       2   ga_13
+
+
+
+[ dihedrals ]
+;  ai    aj    ak    al funct   phi0     cp     mult
+    1     2     3     4     1    gd_23
+    6     5     4     7     1    gd_23
+    5     4     7     8     1    gd_18
+    2     3     4     5     1    gd_18
+    2     3     4     7     1    gd_33
+    2     3     4     7     1    gd_17
+    3     4     5     6     1    gd_23
+    3     4     7     8     1    gd_33
+    3     4     7     8     1    gd_17
+    4     7     8     9     1    gd_29
+    7     8     9    12     1    gd_20
+    7     8     9    12     1    gd_27
+    8     9    12    13     1    gd_20
+    8     9    12    13     1    gd_27
+    9    12    13    14     1    gd_29
+   12    13    14    15     1    gd_34
+   12    13    14    35     1    gd_34
+   12    13    14    35     1    gd_17
+   13    14    35    36     1    gd_34
+   13    14    35    36     1    gd_17
+   13    14    15    16     1    gd_29
+   14    35    36    37     1    gd_29
+   14    15    16    18     1    gd_13
+   15    14    35    36     1    gd_18
+   15    16    18    19     1    gd_40
+   16    18    19    20     1    gd_34
+   18    19    20    21     1    gd_34
+   19    20    21    22     1    gd_34
+   20    21    22    23     1    gd_34 
+   21    22    23    24     1    gd_34
+   22    23    24    25     1    gd_34
+   22    23    24    25     1    0      3.350     1  ;this is phi3
+   22    23    24    25     1    180    1.660     2
+   22    23    24    25     1    0      7.333     3
+   23    24    25    26     3    2.885  4.17  7.8  4.4  0.0  0.0  ;phi2  (Ryckhaert-Belleman)  
+   25    26    27    28     3    2.885  4.17  7.8  4.4  0.0  0.0  ;phi2' (Ryckhaert-Belleman)  
+   26    27    28    29     1    0      3.350     1  ;this is phi3'
+   26    27    28    29     1    180    1.660     2
+   26    27    28    29     1    0      7.333     3
+   27    28    29    30     1    gd_34
+   28    29    30    31     1    gd_34
+   29    30    31    32     1    gd_34
+   30    31    32    33     1    gd_34
+   31    32    33    34     1    gd_34 
+   14    35    36    37     1    gd_29
+   35    36    37    39     1    gd_13
+   36    37    39    40     1    gd_40
+   37    39    40    41     1    gd_34
+   39    40    41    42     1    gd_34
+   40    41    42    43     1    gd_34
+   41    42    43    44     1    gd_34
+   42    43    44    45     1    gd_34
+   43    44    45    46     1    gd_34
+   44    45    46    47     1    gd_34
+   45    46    47    48     1    gd_34
+   46    47    48    49     1    gd_34
+   47    48    49    50     1    gd_34
+   48    49    50    51     1    gd_34
+   49    50    51    52     1    gd_34
+   50    51    52    53     1    gd_34
+
+[ dihedrals ]
+;  ai    aj    ak    al funct
+      14      15      35      13       2   gi_2
+      16      15      18      17       2   gi_1
+      37      36      39      38       2   gi_1
+      24      25      26      27       2   gi_1  ; double bond C=C
+       4       5       7       3       2   gi_2  ; D-sterochemistry at C4
+
+#ifdef POSRES_LIPID
+#include "lipid_posre.itp"
+#endif
