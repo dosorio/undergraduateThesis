@@ -1,6 +1,11 @@
+# DANIEL CAMILO OSORIO
+# UNIVERSIDAD INDUSTRIAL DE SANTANDER
+# d.osorio@me.com
+# USO: KD("PROTEINA")
+
 KD<-function(seq){
   require(seqinr)
-  pep<-s2c(seq)
+  seq<-s2c(seq)
   AA<-matrix(nrow=1,ncol=20)
   colnames(AA)<-c("I","L","W","F","V","M","Y","A","P","T","S","C","G","N","D","Q","E","H","K","R")
   rownames(AA)<-"KD"
@@ -10,8 +15,8 @@ KD<-function(seq){
   colnames(KDi)<-c("Freq","KDI","H")
   KDi[,2]<-AA[1,]
   for(i in 1:length(AA)){
-    KDi[i,1]<-length(which(pep==colnames(AA)[i])==TRUE)
+    KDi[i,1]<-length(which(seq==colnames(AA)[i])==TRUE)
   }
   KDi[,3]<-KDi[,1]*KDi[,2]
-  sum(KDi[,3])/length(pep)
+  sum(KDi[,3])/length(seq)
 }
