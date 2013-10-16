@@ -1,3 +1,8 @@
+# DANIEL CAMILO OSORIO
+# UNIVERSIDAD INDUSTRIAL DE SANTANDER
+# d.osorio@me.com
+# USO: II("PROTEINA")
+
 II<-function(seq){
   require(seqinr)
   seq<-s2c(seq)
