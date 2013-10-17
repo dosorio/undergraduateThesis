@@ -1,0 +1,25 @@
+AL<-function(seq){
+  seq<-s2c(seq)
+  f<-table(seq)
+  Val<-Ala<-Leu<-Ile<-0
+  for(i in 1:length(f)){
+    if(names(f)[i]=="V"){
+      Val<-as.numeric(f)[i]
+      Val<-100*(Val/length(seq))
+    }
+    if(names(f)[i]=="A"){
+      Ala<-as.numeric(f)[i]
+      Ala<-100*(Ala/length(seq))
+    }
+    if(names(f)[i]=="L"){
+      Leu<-as.numeric(f)[i]
+      Leu<-100*(Leu/length(seq))
+    }
+    if(names(f)[i]=="I"){
+      Ile<-as.numeric(f)[i]
+      Ile<-100*(Ile/length(seq))
+    }
+  }
+  AL<-Ala+(2.9*Val)+(3.9*(Leu+Ile))
+  AL
+}
