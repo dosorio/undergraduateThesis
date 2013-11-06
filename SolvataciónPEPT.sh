@@ -78,7 +78,7 @@ grompp_mpi -f minim.mdp -c $pept-SOLV.gro -p topol.top -o em-$pept.tpr
 mpirun -np 8 mdrun_mpi -v -deffnm em-$pept
 else
 grompp -f minim.mdp -c $pept-ION.gro -p topol.top -o em-$pept.tpr
-mdrun_mpi -v -deffnm em-$pept -v
+mdrun_mpi -v -deffnm em-$pept
 fi
 
 # GRAFICO DE MINIMIZACIÓN DE ENERGÍA
@@ -199,10 +199,10 @@ EOF
 
 # ACOPLAMIENTO NVT
 grompp_mpi -f nvt.mdp -c em-$pept.gro -p topol.top -o nvt-$pept-$temp.tpr
-mpirun -np 8 mdrun_mpi -v -deffnm nvt-$pept-$temp -v
+mpirun -np 8 mdrun_mpi -v -deffnm nvt-$pept-$temp
 
 # GRÁFICO DE TEMPERATURA
-g_energy_mpi -f nvt-$pept-$temp.tpr -o $temp-$pept-temp.xvg<<EOF
+g_energy_mpi -f nvt-$pept-$temp.edr -o $temp-$pept-temp.xvg<<EOF
 15 0
 EOF
 
