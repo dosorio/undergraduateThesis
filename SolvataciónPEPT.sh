@@ -17,7 +17,7 @@ do
 # CREANDO CARPETAS DE SIMULACIÓN
 mkdir ~/SOLV
 mkdir ~/SOLV/$pept
-cp ~/E/$pept.pdb ~/SOLV/$pept/
+cp ~/PDB/$pept.pdb ~/SOLV/$pept/
 cd ~/SOLV/$pept/
 
 # GENERA EL ARCHIVO DE ADICIÓN DE IONES
@@ -78,7 +78,7 @@ grompp_mpi -f minim.mdp -c $pept-SOLV.gro -p topol.top -o em-$pept.tpr
 mpirun -np 8 mdrun_mpi -v -deffnm em-$pept
 else
 grompp -f minim.mdp -c $pept-ION.gro -p topol.top -o em-$pept.tpr
-mpirun -np 8 mdrun_mpi -v -deffnm em-$pept
+mdrun_mpi -v -deffnm em-$pept -v
 fi
 
 # GRAFICO DE MINIMIZACIÓN DE ENERGÍA
@@ -199,7 +199,7 @@ EOF
 
 # ACOPLAMIENTO NVT
 grompp_mpi -f nvt.mdp -c em-$pept.gro -p topol.top -o nvt-$pept-$temp.tpr
-mpirun -np 8 mdrun_mpi -v -deffnm nvt-$pept-$temp
+mpirun -np 8 mdrun_mpi -v -deffnm nvt-$pept-$temp -v
 
 # GRÁFICO DE TEMPERATURA
 g_energy_mpi -f nvt-$pept-$temp.tpr -o $temp-$pept-temp.xvg<<EOF
@@ -208,7 +208,7 @@ EOF
 
 # ACOPLAMIENTO NPT
 grompp_mpi -f npt.mdp -c nvt-$pept-$temp.gro -t nvt-$pept-$temp.cpt -p topol.top -o npt-$pept-$temp.tpr
-mdrun -v -deffnm npt-$pept-$temp
+mpirun -np 8 mdrun_mpi -v -deffnm npt-$pept-$temp
 
 # GRÁFICO DE PRESIÓN
 g_energy_mpi -f npt-$pept-$temp.edr -o pres-$pept-$temp.xvg<<EOF
