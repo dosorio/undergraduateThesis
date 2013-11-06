@@ -19,15 +19,15 @@ cd ~/SOLV/$pept/
 # GENERA EL ARCHIVO DE ADICIÓN DE IONES
 cat > ions.mdp << EOF
 integrator	= steep
-emtol		= 1000.0
+emtol		    = 1000.0
 emstep      = 0.01
-nsteps		= 50000
-nstlist		= 1
-ns_type		= grid
-rlist		= 1.0
+nsteps	  	= 50000
+nstlist	  	= 1
+ns_type		  = grid
+rlist		    = 1.0
 coulombtype	= PME
-rcoulomb	= 1.0
-rvdw		= 1.0
+rcoulomb  	= 1.0
+rvdw		    = 1.0
 pbc         = xyz
 EOF
 
