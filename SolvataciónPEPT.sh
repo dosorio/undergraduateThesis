@@ -6,6 +6,10 @@
 #  UNIVERSIDAD INDUSTRIAL DE SANTANDER
 #  d.osorio@me.com
 
+# PATH
+export PATH=$PATH:/usr/bin:/usr/local/cuda/bin:/usr/local/gromacs/bin
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib64:/usr/local/gromacs/lib
+
 # DEFINIENDO PÉPTIDOS A SIMULAR
 for pept in 1KUW  1WO0  2AP7  2K6O  2LNF  2LQA  2RLH  4B2U  1OT0  1X22  2B68  2KAM  2LO7  2M0D  2RSH  4BMF 1S6W  1Z64  2JQ0  2KHF  2LQ0  2M9I  3Q8J 1T51  2AMN  2K10  2LL1  2LQ1  2MAG  4B19
 do
@@ -18,17 +22,17 @@ cd ~/SOLV/$pept/
 
 # GENERA EL ARCHIVO DE ADICIÓN DE IONES
 cat > ions.mdp << EOF
-integrator	= steep
+integrator      = steep
 emtol		    = 1000.0
-emstep      = 0.01
-nsteps	  	= 50000
-nstlist	  	= 1
-ns_type		  = grid
+emstep          = 0.01
+nsteps          = 50000
+nstlist         = 1
+ns_type         = grid
 rlist		    = 1.0
-coulombtype	= PME
-rcoulomb  	= 1.0
+coulombtype     = PME
+rcoulomb        = 1.0
 rvdw		    = 1.0
-pbc         = xyz
+pbc             = xyz
 EOF
 
 # GENERA EL ARCHIVO DE MINIMIZACIÓN DE ENERGÍA
