@@ -83,7 +83,8 @@ fi
 
 # GRAFICO DE MINIMIZACIÓN DE ENERGÍA
 g_energy_mpi -f em-$pept.edr -o epot-$pept.xvg<<EOF
-10 0
+10
+0
 EOF
 
 for temp in 293 310 323
@@ -203,7 +204,8 @@ mpirun -np 8 mdrun_mpi -v -deffnm nvt-$pept-$temp
 
 # GRÁFICO DE TEMPERATURA
 g_energy_mpi -f nvt-$pept-$temp.edr -o $temp-$pept-temp.xvg<<EOF
-15 0
+15
+0
 EOF
 
 # ACOPLAMIENTO NPT
@@ -212,12 +214,14 @@ mpirun -np 8 mdrun_mpi -v -deffnm npt-$pept-$temp
 
 # GRÁFICO DE PRESIÓN
 g_energy_mpi -f npt-$pept-$temp.edr -o pres-$pept-$temp.xvg<<EOF
-16 0
+16
+0
 EOF
 
 # GRÁFICO DE DENSIDAD
 g_energy_mpi -f npt-$pept-$temp.edr -o den-$pept-$temp.xvg<<EOF
-22 0
+22
+0
 EOF
 
 # DINÁMICA MOLECULAR
@@ -232,10 +236,13 @@ EOF
 # RMSD
 g_rms_mpi -s em-$pept.tpr -f nopbc-$pept-$temp.xtc -o rmsd-$pept-$temp.xvg -tu ns <<EOF
 4
+4
 EOF
 
 # GIRO
-g_girate_mpi -s md-$pept-$temp.tpr -f nopbc-$pept-$temp.xtc -o giro-$pept-$temp.vxg
+g_girate_mpi -s md-$pept-$temp.tpr -f nopbc-$pept-$temp.xtc -o giro-$pept-$temp.vxg <<EOF
+1
+EOF
 
 # ELIMINANDO ARCHIVOS INTERMEDIOS
 rm *.log *.mdp* *.log.*
