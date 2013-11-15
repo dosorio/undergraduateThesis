@@ -1,6 +1,6 @@
 ;Topología para la membrana de 128 POPC sin agua ajustada a 6.48650 6.48650 6.32320
 #include "gromos53a6_lipid.ff/forcefield.itp"
-#include "popc.itp"
+#include "POPC.itp"
 
 ; Topología del Agua
 #include "gromos53a6_lipid.ff/spc.itp"
