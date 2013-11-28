@@ -240,7 +240,7 @@ g_rms_mpi -s em-$pept.tpr -f nopbc-$pept-$temp.xtc -o rmsd-$pept-$temp.xvg -tu n
 EOF
 
 # GIRO
-g_girate_mpi -s md-$pept-$temp.tpr -f nopbc-$pept-$temp.xtc -o giro-$pept-$temp.xvg<<EOF
+g_gyrate_mpi -s md-$pept-$temp.tpr -f nopbc-$pept-$temp.xtc -o giro-$pept-$temp.xvg<<EOF
 1
 EOF
 done
