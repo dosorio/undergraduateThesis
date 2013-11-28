@@ -10,19 +10,20 @@
 
 # PATH
 export PATH=$PATH:/usr/bin:/usr/local/cuda/bin:/usr/local/gromacs/bin
+export DSSP=/home/dosorio/DSSP
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib64:/usr/local/gromacs/lib
 
 # CREANDO CARPETA DE RESULTADOS
 mkdir PEP-MEM ; cd PEP-MEM
 
 # DEFINIENDO PÉPTIDOS A SIMULAR
-for pept in 1T51 1KUW  1WO0  2AP7  2K6O  2LNF  2LQA  2RLH  4B2U  1OT0  1X22  2B68  2KAM  2LO7  2M0D  2RSH  4BMF 1S6W  1Z64  2JQ0  2KHF  2LQ0  2M9I  3Q8J  2AMN  2K10  2LL1  2LQ1  2MAG  4B19
+for pept in 1T51 1KUW  1WO0  2AP7 2K6O  2LNF  2LQA  2RLH  4B2U  1OT0  1X22  2B68 2KAM  2LO7  2M0D  2RSH  4BMF 1S6W  1Z64  2JQ0  2KHF 2LQ0  2M9I  3Q8J  2AMN  2K10 2LL1  2LQ1  2MAG  4B19
 do
 
 # CREANDO LA CARPETA DEL PÉPTIDO
 mkdir $pept ; cd $pept
 
-for memb in POPG POPE POPC
+for memb in POPG #POPE POPC
 do
 
 # CREANDO CARPETA EN RESULTADOS
@@ -72,15 +73,15 @@ EOF
 # AUMENTANDO TAMAÑO EN EL EJE Z
 if [ $memb = POPC ];
 then
-editconf_mpi -f n-$memb.gro -o w-$memb.gro -c -box 6.48650   6.48650    8.00
+editconf_mpi -f n-$memb.gro -o w-$memb.gro -c -box 6.48650   6.48650    7.50
 else
 if [ $memb = POPE ];
 then
-editconf_mpi -f n-$memb.gro -o w-$memb.gro -c -box 9.57070   9.48610    8.00
+editconf_mpi -f n-$memb.gro -o w-$memb.gro -c -box 9.57070   9.48610    7.50
 else
 if [ $memb = POPG ];
 then
-editconf_mpi -f n-$memb.gro -o w-$memb.gro -c -box 6.63780   6.62730    8.00
+editconf_mpi -f n-$memb.gro -o w-$memb.gro -c -box 6.63780   6.62730    7.50
 fi
 fi
 fi
@@ -88,15 +89,15 @@ fi
 # POSICIONANDO EL PEPTIDO
 if [ $memb = POPC ];
 then
-editconf_mpi -f $pept.gro -o nb-$pept.gro -box 6.48650   6.48650   8.00000 -center 3.24325  3.24325  0.5
+editconf_mpi -f $pept.gro -o nb-$pept.gro -box 6.48650   6.48650   7.50000 -center 3.24325  3.24325  0.5
 else
 if [ $memb = POPE ];
 then
-editconf_mpi -f $pept.gro -o nb-$pept.gro -box 9.57070   9.48610   8.00000 -center 4.78535  4.74305  0.5
+editconf_mpi -f $pept.gro -o nb-$pept.gro -box 9.57070   9.48610   7.50000 -center 4.78535  4.74305  0.5
 else
 if [ $memb = POPG ];
 then
-editconf_mpi -f $pept.gro -o nb-$pept.gro -box 6.63780   6.62730   8.00000 -center 3.31800  3.31300  0.5
+editconf_mpi -f $pept.gro -o nb-$pept.gro -box 6.63780   6.62730   7.50000 -center 3.31800  3.31300  0.5
 fi
 fi
 fi
@@ -167,7 +168,7 @@ rm vdwradii.dat
 cat > ions.mdp <<EOF
 integrator	= steep
 emtol		= 1000.0
-emstep      = 0.01
+emstep 	        = 0.01
 nsteps		= 50000
 nstlist		= 1
 ns_type		= grid
@@ -175,7 +176,7 @@ rlist		= 1.2
 coulombtype	= PME
 rcoulomb	= 1.2
 rvdw		= 1.2
-pbc		    = xyz
+pbc		= xyz
 EOF
 
 #CONFIGURAR LA ADICIÃ“N DE IONES
@@ -208,13 +209,13 @@ then
 cat > nvt.mdp <<EOF
 title					= NVT
 integrator				= md
-nsteps					= 50000
-dt		   			 	= 0.002
+nsteps					= 500000
+dt	   			 	= 0.002
 nstxout					= 100
 nstvout					= 100
 nstenergy				= 100
 nstlog					= 100
-continuation			= no
+continuation				= no
 constraint_algorithm 	= lincs
 constraints				= all-bonds
 lincs_iter				= 1
@@ -246,7 +247,7 @@ else
 cat > nvt.mdp <<EOF
 title					= NVT
 integrator				= md
-nsteps					= 50000
+nsteps					= 500000
 dt		   			 	= 0.002
 nstxout					= 100
 nstvout					= 100
@@ -448,7 +449,71 @@ fi
 #DINÃMICA MOLECULAR
 grompp_mpi -f md.mdp -c npt-$pept-$memb-$temp.gro -t npt-$pept-$memb-$temp.cpt -p topol.top -n index-$pept-$memb.ndx -o md-$pept-$memb-$temp.tpr
 mpirun -np 8 mdrun_mpi -deffnm md-$pept-$memb-$temp -v
+
+# GRAFICO DE MINIMIZACIÃ“N DE ENERGÃA
+g_energy_mpi -f $pept-$memb.edr -o R_epot-$pept-$memb.xvg<<EOF
+11
+0
+EOF
+
+# GRÃFICO DE TEMPERATURA
+g_energy_mpi -f nvt-$pept-$memb-$temp.edr -o R_temp-$pept-$temp-$memb.xvg<<EOF
+15
+0
+EOF
+
+# GRÃFICO DE PRESIÃ“N
+g_energy_mpi -f npt-$pept-$memb-$temp.edr -o R_pres-$pept-$temp-$memb.xvg<<EOF
+16
+0
+EOF
+
+# GRÃFICO DE DENSIDAD
+g_energy_mpi -f npt-$pept-$memb-$temp.edr -o R_den-$pept-$temp-$memb.xvg<<EOF
+22
+0
+EOF
+
+# CONVIRTIENDO LAS TRAYECTORIAS
+trjconv_mpi -s md-$pept-$memb-$temp.tpr -f md-$pept-$memb-$temp.xtc -o nopbc-$pept-$memb-$temp.xtc -pbc mol -ur compact <<EOF
+0
+EOF
+
+# RMSD
+g_rms_mpi -s $pept-$memb.tpr -f nopbc-$pept-$memb-$temp.xtc -o R_rmsd-$pept-$memb-$temp.xvg -tu ns <<EOF
+4
+4
+EOF
+
+# GIRO
+g_gyrate_mpi -s md-$pept-$memb-$temp.tpr -f nopbc-$pept-$memb-$temp.xtc -o R_giro-$pept-$memb-$temp.xvg<<EOF
+1
+EOF
+
+# CONVIRTIENDO TRAYECTORIAS
+trjconv_mpi -f md-$pept-$memb-$temp.xtc -o R_md-$pept-$memb-$temp.pdb -s md-$pept-$memb-$temp.tpr -n index-$pept-$memb.ndx -pbc mol -b 49998 <<EOF
+0
+EOF
+
+# E3D
+do_dssp_mpi -f nopbc-$pept-$memb-$temp.xtc -s md-$pept-$memb-$temp.tpr -n index-$pept-$memb.ndx -o R_E3D-$pept-$memb-$temp.xpm -tu ns <<EOF
+1
+EOF
+
+# APL
+g_energy_mpi -f md-$pept-$memb-$temp.edr -o R_apl-$pept-$memb-$temp.xvg <<EOF
+18 19
+0
+EOF
+
+# AGUA
+trjconv_mpi -f md-$pept-$memb-$temp.xtc -o H2O-$pept-$memb-$temp.pdb -s md-$pept-$memb-$temp.tpr -n index-$pept-$memb.ndx -pbc mol << EOF
+16
+EOF
+awk '{print $8}' H2O-$pept-$memb-$temp.pdb > R_H2O-$pept-$memb-$temp.txt
 done
+cp -r R_* ~/R_INTER/
+rm -r *
 cd ..
 done
 cd ..
