@@ -9,6 +9,7 @@
 
 
 # PATH
+#export GMX_MAXCONSTRWARN=-1
 export PATH=$PATH:/usr/bin:/usr/local/cuda/bin:/usr/local/gromacs/bin
 export DSSP=/home/dosorio/DSSP
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib64:/usr/local/gromacs/lib
@@ -17,13 +18,13 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib64:/usr/local/gromacs
 mkdir PEP-MEM ; cd PEP-MEM
 
 # DEFINIENDO PÉPTIDOS A SIMULAR
-for pept in 1T51 1KUW  1WO0  2AP7 2K6O  2LNF  2LQA  2RLH  4B2U  1OT0  1X22  2B68 2KAM  2LO7  2M0D  2RSH  4BMF 1S6W  1Z64  2JQ0  2KHF 2LQ0  2M9I  3Q8J  2AMN  2K10 2LL1  2LQ1  2MAG  4B19
+for pept in 2JQ0 2M9I GIB10 GIB20 GIB30 1KUW 1OT0 2K10 2RSH GIB1 GIB11 GIB21 1S6W 2K60 2KAM 3Q8J GIB2 GIB12 GIB22 1T51 2KHF 2LL1 4B19 GIB3 GIB13 GIB23 1WO0 2LNF 4B2U GIB4 GIB14 GIB24 2MAG 1X22 2LO7 4BMF GIB5 GIB15 GIB25 2RLH 1Z64 2LQ0 GIB6 GIB16 GIB26 2AMN 2LQ1 GIB7 GIB17 GIB27 2AP7 2LQA GIB8 GIB18 GIB28 2B68 2M0D GIB9 GIB19 GIB29
 do
 
 # CREANDO LA CARPETA DEL PÉPTIDO
 mkdir $pept ; cd $pept
 
-for memb in POPG #POPE POPC
+for memb in POPG POPE POPC
 do
 
 # CREANDO CARPETA EN RESULTADOS
@@ -51,8 +52,8 @@ EOF
 cat > minim.mdp << EOF
 integrator	= steep
 emtol		= 1000.0
-emstep      = 0.01
-nsteps		= 50000
+emstep      = 0.001
+nsteps		= 500000
 nstlist		= 1
 ns_type		= grid
 rlist		= 1.2
@@ -73,15 +74,15 @@ EOF
 # AUMENTANDO TAMAÑO EN EL EJE Z
 if [ $memb = POPC ];
 then
-editconf_mpi -f n-$memb.gro -o w-$memb.gro -c -box 6.48650   6.48650    7.50
+editconf_mpi -f n-$memb.gro -o w-$memb.gro -c -box 6.48650   6.48650    9.00
 else
 if [ $memb = POPE ];
 then
-editconf_mpi -f n-$memb.gro -o w-$memb.gro -c -box 9.57070   9.48610    7.50
+editconf_mpi -f n-$memb.gro -o w-$memb.gro -c -box 9.57070   9.48610    9.00
 else
 if [ $memb = POPG ];
 then
-editconf_mpi -f n-$memb.gro -o w-$memb.gro -c -box 6.63780   6.62730    7.50
+editconf_mpi -f n-$memb.gro -o w-$memb.gro -c -box 6.63780   6.62730    9.00
 fi
 fi
 fi
@@ -89,15 +90,15 @@ fi
 # POSICIONANDO EL PEPTIDO
 if [ $memb = POPC ];
 then
-editconf_mpi -f $pept.gro -o nb-$pept.gro -box 6.48650   6.48650   7.50000 -center 3.24325  3.24325  0.5
+editconf_mpi -f $pept.gro -o nb-$pept.gro -box 6.48650   6.48650   9.00000 -center 3.24325  3.24325  0.5
 else
 if [ $memb = POPE ];
 then
-editconf_mpi -f $pept.gro -o nb-$pept.gro -box 9.57070   9.48610   7.50000 -center 4.78535  4.74305  0.5
+editconf_mpi -f $pept.gro -o nb-$pept.gro -box 9.57070   9.48610   9.00000 -center 4.78535  4.74305  0.5
 else
 if [ $memb = POPG ];
 then
-editconf_mpi -f $pept.gro -o nb-$pept.gro -box 6.63780   6.62730   7.50000 -center 3.31800  3.31300  0.5
+editconf_mpi -f $pept.gro -o nb-$pept.gro -box 6.63780   6.62730   9.00000 -center 3.31800  3.31300  0.5
 fi
 fi
 fi
@@ -184,7 +185,7 @@ grompp_mpi -f ions.mdp -c $pept-$memb-solv.gro -p topol.top -o ions.tpr
 
 
 #AÃ‘ADIR IONES HASTA NEUTRALIZAR LA CARGA
-genion_mpi -s ions.tpr -o i-$pept-$memb.gro -p topol.top -pname NA -nname CL -neutral<<EOF
+genion_mpi -s ions.tpr -o i-$pept-$memb.gro -p topol.top -pname NA -nname CL -conc 0.9 -neutral -rmin 0.1<<EOF
 15
 EOF
 
@@ -192,11 +193,11 @@ EOF
 grompp_mpi -f minim.mdp -c i-$pept-$memb.gro -p topol.top -o $pept-$memb.tpr
 
 #MINIMIZACIÃ“N HASTA 1000KJ/MOL
-mdrun_mpi -v -deffnm $pept-$memb
+mpirun -np 8 mdrun_mpi -deffnm $pept-$memb
 
 #HACER GRUPOS DE SIMULACIÃ“N
 make_ndx_mpi -f $pept-$memb.gro -o index-$pept-$memb.ndx <<EOF
-16 | 14
+17 | 19
 1 | 13
 q
 EOF
@@ -209,7 +210,7 @@ then
 cat > nvt.mdp <<EOF
 title					= NVT
 integrator				= md
-nsteps					= 500000
+nsteps					= 50000
 dt	   			 	= 0.002
 nstxout					= 100
 nstvout					= 100
@@ -229,7 +230,7 @@ coulombtype				= PME
 pme_order				= 4
 fourierspacing			= 0.16
 tcoupl					= V-rescale
-tc-grps					= Protein DPOPG SOL_NA
+tc-grps					= Protein DPOPG SOL_Ion
 tau_t					= 0.1	0.1	0.1
 ref_t					= $temp $temp $temp
 pcoupl					= no
@@ -240,15 +241,15 @@ gen_temp				= $temp
 gen_seed				= -1
 nstcomm					= 1
 comm-mode				= Linear
-comm-grps				= Protein_DPOPG SOL_NA
+comm-grps				= Protein_DPOPG SOL_Ion
 cutoff-scheme           = Verlet
 EOF
 else
 cat > nvt.mdp <<EOF
 title					= NVT
 integrator				= md
-nsteps					= 500000
-dt		   			 	= 0.002
+nsteps					= 50000
+dt		   			= 0.002
 nstxout					= 100
 nstvout					= 100
 nstenergy				= 100
@@ -267,7 +268,7 @@ coulombtype				= PME
 pme_order				= 4
 fourierspacing			= 0.16
 tcoupl					= V-rescale
-tc-grps					= Protein $memb SOL_CL
+tc-grps					= Protein $memb SOL_Ion
 tau_t					= 0.1	0.1	0.1
 ref_t					= $temp $temp $temp
 pcoupl					= no
@@ -278,21 +279,21 @@ gen_temp				= $temp
 gen_seed				= -1
 nstcomm					= 1
 comm-mode				= Linear
-comm-grps				= Protein_$memb SOL_CL
+comm-grps				= Protein_$memb SOL_Ion
 cutoff-scheme           = Verlet
 EOF
 fi
 
 #ACOPLAMIENTO NVT EN X TEMPERATURA
 grompp_mpi -f nvt.mdp -c $pept-$memb.gro -p topol.top -n index-$pept-$memb.ndx -o nvt-$pept-$memb-$temp.tpr
-mpirun -np 8 mdrun_mpi -v -deffnm nvt-$pept-$memb-$temp
+mpirun -np 8 mdrun_mpi -deffnm nvt-$pept-$memb-$temp 
 
 # CREANDO EL ARCHIVO npt.mdp
 if [ $memb = POPG ]
 then
-cat > npt.mdp << EOF
+cat > npt.mdp <<EOF
 integrator          = md
-nsteps              = 500000
+nsteps              = 50000
 dt                  = 0.002
 nstxout             = 100
 nstvout             = 100
@@ -312,7 +313,7 @@ coulombtype         = PME
 pme_order           = 4
 fourierspacing      = 0.16
 tcoupl              = Nose-Hoover
-tc-grps             = Protein DPOPG	SOL_NA
+tc-grps             = Protein DPOPG	SOL_Ion
 tau_t               = 0.5	0.5	0.5
 ref_t               = $temp $temp $temp
 pcoupl              = Parrinello-Rahman
@@ -326,9 +327,9 @@ gen_vel             = no
 cutoff-scheme       = Verlet
 EOF
 else
-cat > npt.mdp << EOF
+cat > npt.mdp <<EOF
 integrator          = md
-nsteps              = 500000
+nsteps              = 50000
 dt                  = 0.002
 nstxout             = 100
 nstvout             = 100
@@ -348,7 +349,7 @@ coulombtype         = PME
 pme_order           = 4
 fourierspacing      = 0.16
 tcoupl              = Nose-Hoover
-tc-grps             = Protein $memb	SOL_CL
+tc-grps             = Protein $memb	SOL_Ion
 tau_t               = 0.5	0.5	0.5
 ref_t               = $temp $temp $temp
 pcoupl              = Parrinello-Rahman
@@ -365,15 +366,15 @@ fi
 
 #ACOPLAMIENTO NPT EN X TEMPERATURA
 grompp_mpi -f npt.mdp -c nvt-$pept-$memb-$temp.gro -t nvt-$pept-$memb-$temp.cpt -p topol.top -n index-$pept-$memb.ndx -o npt-$pept-$memb-$temp.tpr
-mpirun -np 8 mdrun_mpi -deffnm npt-$pept-$memb-$temp -v
+mpirun -np 8 mdrun_mpi -deffnm npt-$pept-$memb-$temp 
 
 if [ $memb = POPG ]
 then
 # CREANDO EL ARCHIVO md.mdp
-cat > md.mdp << EOF
+cat > md.mdp <<EOF
 integrator              = md
-nsteps                  = 25000000
-dt                      = 0.002
+nsteps                  = 16666667
+dt                      = 0.003
 nstxout                 = 1000
 nstvout                 = 1000
 nstxtcout               = 1000
@@ -393,7 +394,7 @@ coulombtype             = PME
 pme_order               = 4
 fourierspacing          = 0.16
 tcoupl                  = Nose-Hoover
-tc-grps                 = Protein DPOPG	SOL_NA
+tc-grps                 = Protein DPOPG	SOL_Ion
 tau_t                   = 0.5	0.5	0.5
 ref_t                   = $temp $temp $temp
 pcoupl                  = Parrinello-Rahman
@@ -405,12 +406,14 @@ pbc                     = xyz
 DispCorr                = EnerPres
 gen_vel                 = no
 cutoff-scheme           = Verlet
+energygrps		= Protein DPOPG
+;energygrps-table        = Protein DPOPG
 EOF
 else
-cat > md.mdp << EOF
+cat > md.mdp <<EOF
 integrator              = md
-nsteps                  = 25000000
-dt                      = 0.002
+nsteps                  = 16666667
+dt                      = 0.003
 nstxout                 = 1000
 nstvout                 = 1000
 nstxtcout               = 1000
@@ -430,7 +433,7 @@ coulombtype             = PME
 pme_order               = 4
 fourierspacing          = 0.16
 tcoupl                  = Nose-Hoover
-tc-grps                 = Protein $memb	SOL_NA
+tc-grps                 = Protein $memb	SOL_Ion
 tau_t                   = 0.5	0.5	0.5
 ref_t                   = $temp $temp $temp
 pcoupl                  = Parrinello-Rahman
@@ -442,6 +445,8 @@ pbc                     = xyz
 DispCorr                = EnerPres
 gen_vel                 = no
 cutoff-scheme           = Verlet
+energygrps              = Protein $memb
+;energygrps-table        = Protein $memb
 EOF
 fi
 
@@ -491,14 +496,42 @@ g_gyrate_mpi -s md-$pept-$memb-$temp.tpr -f nopbc-$pept-$memb-$temp.xtc -o R_gir
 EOF
 
 # CONVIRTIENDO TRAYECTORIAS
-trjconv_mpi -f md-$pept-$memb-$temp.xtc -o R_md-$pept-$memb-$temp.pdb -s md-$pept-$memb-$temp.tpr -n index-$pept-$memb.ndx -pbc mol -b 49998 <<EOF
+trjconv_mpi -f md-$pept-$memb-$temp.xtc -o R_md-$pept-$memb-$temp-1.pdb -s md-$pept-$memb-$temp.tpr -n index-$pept-$memb.ndx -pbc mol -b 4991 -e 5009 <<EOF
+0
+EOF
+trjconv_mpi -f md-$pept-$memb-$temp.xtc -o R_md-$pept-$memb-$temp-2.pdb -s md-$pept-$memb-$temp.tpr -n index-$pept-$memb.ndx -pbc mol -b 9991 -e 10009 <<EOF
+0
+EOF
+trjconv_mpi -f md-$pept-$memb-$temp.xtc -o R_md-$pept-$memb-$temp-3.pdb -s md-$pept-$memb-$temp.tpr -n index-$pept-$memb.ndx -pbc mol -b 14991 -e 15009 <<EOF
+0
+EOF
+trjconv_mpi -f md-$pept-$memb-$temp.xtc -o R_md-$pept-$memb-$temp-4.pdb -s md-$pept-$memb-$temp.tpr -n index-$pept-$memb.ndx -pbc mol -b 19991 -e 20009 <<EOF
+0
+EOF
+trjconv_mpi -f md-$pept-$memb-$temp.xtc -o R_md-$pept-$memb-$temp-5.pdb -s md-$pept-$memb-$temp.tpr -n index-$pept-$memb.ndx -pbc mol -b 24991 -e 25009 <<EOF
+0
+EOF
+trjconv_mpi -f md-$pept-$memb-$temp.xtc -o R_md-$pept-$memb-$temp-6.pdb -s md-$pept-$memb-$temp.tpr -n index-$pept-$memb.ndx -pbc mol -b 29991 -e 30009 <<EOF
+0
+EOF
+trjconv_mpi -f md-$pept-$memb-$temp.xtc -o R_md-$pept-$memb-$temp-7.pdb -s md-$pept-$memb-$temp.tpr -n index-$pept-$memb.ndx -pbc mol -b 34991 -e 35009 <<EOF
+0
+EOF
+trjconv_mpi -f md-$pept-$memb-$temp.xtc -o R_md-$pept-$memb-$temp-8.pdb -s md-$pept-$memb-$temp.tpr -n index-$pept-$memb.ndx -pbc mol -b 39991 -e 40009 <<EOF
+0
+EOF
+trjconv_mpi -f md-$pept-$memb-$temp.xtc -o R_md-$pept-$memb-$temp-9.pdb -s md-$pept-$memb-$temp.tpr -n index-$pept-$memb.ndx -pbc mol -b 44991 -e 45009 <<EOF
+0
+EOF
+trjconv_mpi -f md-$pept-$memb-$temp.xtc -o R_md-$pept-$memb-$temp-10.pdb -s md-$pept-$memb-$temp.tpr -n index-$pept-$memb.ndx -pbc mol -b 49982 -e 50000 <<EOF
 0
 EOF
 
-# E3D
-do_dssp_mpi -f nopbc-$pept-$memb-$temp.xtc -s md-$pept-$memb-$temp.tpr -n index-$pept-$memb.ndx -o R_E3D-$pept-$memb-$temp.xpm -tu ns <<EOF
-1
-EOF
+
+# E3D - DSSP
+#do_dssp_mpi -f nopbc-$pept-$memb-$temp.xtc -s md-$pept-$memb-$temp.tpr -n index-$pept-$memb.ndx -o R_E3D-$pept-$memb-$temp.xpm -tu ns <<EOF
+#1
+#EOF
 
 # APL
 g_energy_mpi -f md-$pept-$memb-$temp.edr -o R_apl-$pept-$memb-$temp.xvg <<EOF
@@ -511,6 +544,18 @@ trjconv_mpi -f md-$pept-$memb-$temp.xtc -o H2O-$pept-$memb-$temp.pdb -s md-$pept
 16
 EOF
 awk '{print $8}' H2O-$pept-$memb-$temp.pdb > R_H2O-$pept-$memb-$temp.txt
+
+# DISTANCIA PEPT-PROTEINA
+g_dist_mpi -f md-$pept-$memb-$temp.xtc -s md-$pept-$memb-$temp.tpr -n index-$pept-$memb.ndx -o R_dist-$pept-$memb-$temp.xvg << EOF
+1
+13
+EOF
+
+# ENERGÍA INTERACCIÓN PEPTIDO PROTEINA
+g_energy_mpi -f md-$pept-$memb-$temp.edr -s md-$pept-$memb-$temp.tpr -o R_ener-$pept-$memb-$temp.xvg <<EOF
+6 9 10 51 53 0
+EOF
+
 done
 cp -r R_* ~/R_INTER/
 rm -r *
@@ -519,3 +564,4 @@ done
 cd ..
 done
 exit
+
