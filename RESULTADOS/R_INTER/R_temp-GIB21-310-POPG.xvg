@@ -1,0 +1,20 @@
+# This file was created Sun Feb 16 11:34:28 2014
+# by the following command:
+# g_energy_mpi -f nvt-GIB21-POPG-310.edr -o R_temp-GIB21-310-POPG.xvg 
+#
+# g_energy_mpi is part of G R O M A C S:
+#
+# GROningen MAchine for Chemical Simulation
+#
+@    title "Gromacs Energies"
+@    xaxis  label "Time (ps)"
+@    yaxis  label "(K)"
+@TYPE xy
+@ view 0.15, 0.15, 0.75, 0.85
+@ legend on
+@ legend box on
+@ legend loctype view
+@ legend 0.78, 0.8
+@ legend length 2
+@ s0 legend "Temperature"
+    0.000000  109926491881472.000000
