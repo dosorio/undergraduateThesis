@@ -1,10 +1,10 @@
-# This file was created Thu Feb 13 16:03:17 2014
+# This file was created Wed Mar 19 23:06:55 2014
 # by the following command:
 # g_energy_mpi -f nvt-GIB30-POPG-310.edr -o R_temp-GIB30-310-POPG.xvg 
 #
 # g_energy_mpi is part of G R O M A C S:
 #
-# Gnomes, ROck Monsters And Chili Sauce
+# Gravel Rubs Often Many Awfully Cauterized Sores
 #
 @    title "Gromacs Energies"
 @    xaxis  label "Time (ps)"
@@ -17,4 +17,4 @@
 @ legend 0.78, 0.8
 @ legend length 2
 @ s0 legend "Temperature"
-    0.000000  207149695238144.000000
+    0.000000  209094073909248.000000
