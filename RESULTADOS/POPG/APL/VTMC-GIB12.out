@@ -1,0 +1,166 @@
+_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/
+
+    VTMC: Analysis of lipid surface area in protein-membrane systems
+      version: 1.0
+      last modified: Jan 13 2012
+      programed by Takaharu Mori
+
+    Copyright(C) 2012-
+    Theoretical Biochemistry Lab, RIKEN Adv Sci Inst
+    2-1 Hirosawa, Wako-shi, Saitama, 351-0198, Japan
+    http://www.riken.jp/TBC07/
+
+    Ref) T.Mori, F.Ogushi, and Y.Sugita, J.Comput.Chem., 33, 286-293 (2012)
+
+_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/
+
+ INFO> Read configulation file
+  
+ [INPUT]
+   PDB file           =  L-VTMC-GIB12.pdb-A
+ 
+ [OUTPUT]
+   output level       =      0
+   output name        =  L-VTMC-GIB12.pdb-A
+ 
+ [PROTEIN]
+   residue list       =     16
+      GLY       GLY       TYR       ILE       TYR       ILE       ALA       GLY 
+      LYS       CYS       GLY       LEU       VAL       VAL       LEU       LYS 
+   select hydrogen    =    YES
+ 
+ [LIPID]
+   residue list       =      1
+      DPO 
+   select hydrogen    =    YES
+   lipid head atom    =        P9  
+ 
+ [ATOM_MASS]
+   mass list          =      6
+                H     =     1.008
+                C     =    12.010
+                O     =    16.000
+                N     =    14.010
+                P     =    30.970
+                S     =    32.070
+ 
+ [VDW_RADIUS]
+   vdw_radius list    =      6
+                H     =     1.200
+                C     =     1.700
+                O     =     1.520
+                N     =     1.550
+                P     =     1.800
+                S     =     1.800
+ 
+ [ANALYSIS]
+   cell center        =     0.000   0.000
+   cell size          =    66.596  66.491
+   probe atom radius  =     0.100
+   factor             =           100
+   iseed              =       3141592
+   randomize          =    YES
+   decimal place      =            12
+ 
+ 
+ INFO> Read PDB file
+  
+     open pdb file                                        [OK]
+     count the number of lipid molecules                  [OK]
+     calculate the bilayer center                         [OK]
+     memory allocation for lipids                         [OK]
+     compute the center of mass of each lipid             [OK]
+     separate the bilayer                                 [OK]
+     memory allocation for lipid coordinates              [OK]
+     count the number of protein atoms                    [OK]
+     select protein atoms                                 [OK]
+     memory allocation for protein coordinates            [OK]
+     copy protein coordinates                             [OK]
+ 
+ [SYSTEM STATISTICS]
+   total number of protein atoms =         151
+   total number of lipids        =         128
+   bilayer center                =      38.974
+ 
+   layer1: number of lipids =          64
+                       Zmax =      64.010
+                       Zmin =      32.370
+           selected protein atoms =           0
+ 
+   layer2: number of lipids =          64
+                       Zmax =      45.600
+                       Zmin =      15.450
+           selected protein atoms =         141
+ 
+ 
+ INFO> Perform Voronoi analysis for Layer 1
+ 
+     randomize coordinates of lipid center of mass        [OK]
+     wrap all lipids into the unit cell                   [OK]
+     set periodic boundary condition for lipids           [OK]
+     use fast algorithm                                   [OK]
+     allocate memory for voronoi analysis                 [OK]
+     compute voronoi vertices                             [OK]
+     compute area per lipid                               [OK]
+     deallocate memory                                    [OK]
+
+ [RESULTS]
+                             ALL     BOUND   N-BOUND     ERROR
+   num_lipids     :           64         0        64         0
+   area per lipid :       69.188     0.000    69.188
+
+ 
+ INFO> Perform Voronoi analysis for Layer 2
+ 
+     randomize coordinates of lipid center of mass        [OK]
+     wrap all lipids into the unit cell                   [OK]
+     set periodic boundary condition for lipids           [OK]
+     wrap all protein atoms into the unit cell            [OK]
+     set periodic boundary condition for protein          [OK]
+     use fast algorithm                                   [OK]
+     allocate memory for voronoi analysis                 [OK]
+     compute voronoi vertices                             [OK]
+     MC for    1  Avor =     81.072  Ntot =       8107  Nhit =       3887
+     MC for    3  Avor =     69.506  Ntot =       6950  Nhit =       3865
+     MC for    8  Avor =     84.120  Ntot =       8411  Nhit =        285
+     MC for   10  was not done (no protein atom exists in the polygon)
+     MC for   17  Avor =     47.728  Ntot =       4772  Nhit =       1651
+     MC for   22  was not done (no protein atom exists in the polygon)
+     MC for   29  Avor =     70.840  Ntot =       7084  Nhit =       3577
+     MC for   32  Avor =     52.013  Ntot =       5201  Nhit =         41
+     MC for   34  Avor =     57.600  Ntot =       5760  Nhit =       2962
+     MC for   36  Avor =     74.503  Ntot =       7450  Nhit =        392
+     MC for   37  Avor =     73.889  Ntot =       7388  Nhit =       6234
+     MC for   39  was not done (no protein atom exists in the polygon)
+     MC for   44  Avor =     76.275  Ntot =       7627  Nhit =          0
+     MC for   45  Avor =     79.731  Ntot =       7973  Nhit =       3893
+     MC for   47  Avor =     80.947  Ntot =       8094  Nhit =       2312
+     MC for   49  Avor =     49.509  Ntot =       4950  Nhit =          0
+     MC for   52  Avor =     48.457  Ntot =       4845  Nhit =          0
+     MC for   56  was not done (no protein atom exists in the polygon)
+     MC for   57  was not done (no protein atom exists in the polygon)
+     MC for   58  was not done (no protein atom exists in the polygon)
+     MC for   64  was not done (no protein atom exists in the polygon)
+     compute area per lipid                               [OK]
+     deallocate memory                                    [OK]
+
+ [RESULTS]
+                             ALL     BOUND   N-BOUND     ERROR
+   num_lipids     :           64        21        43         0
+   area per lipid :       64.641    55.152    69.275
+
+ 
+ INFO> Summary of the results
+ 
+   average area of all lipids          :     66.915   /    128
+   average area of boundary lipids     :     55.152   /     21
+   average area of non-boundary lipids :     69.223   /    107
+ 
+ 
+ INFO> Deallocate all configulation data
+ INFO> Deallocate all pdb data
+ 
+ [CPU TIME]
+  total    :     0.158(sec)
+  analysis :     0.055(sec)
+ 
