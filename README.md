@@ -1,4 +1,4 @@
-cAMP-Membrana
+AMP-Membrane
 =============
 
 **Interacciones de cAMP's con Membranas**
