@@ -1,15 +1,7 @@
 AMP-Membrane
 =============
+Code to simulate the interaction between antimicrobial peptides and three diferent membrane compositions.
 
-**Interacciones de cAMP's con Membranas**
-
-Código para simulaciones en GROMACS 4.6.3 entre péptidos catiónicos antimicrobianos y bicapas lípidicas puras de POPE, POPG y POPC con la finalidad de identificar secuencias biológicamente activas
-
-##Autor##
-**Daniel Camilo Osorio** |
-Estudiante de Biología | GIBIM | Universidad Industrial de Santander 
-
-**Contacto:**
-daniel.osorio@correo.uis.edu.co
-
-
+Authorship and license
+======================
+Copyright (c) 2014, Daniel Camilo Osorio daniel.osorio@correo.uis.edu.co All rights reserved. Distributed under BSD-style license that can be found in the LICENSE file.
