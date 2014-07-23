@@ -7,8 +7,8 @@ Created on Fri Apr  4 10:45:46 2014
 
 import glob
 import os
-os.chdir("/Users/Daniel/Desktop/POPG")
-for file in glob.glob("*.pdb"):
+os.chdir("./")
+for file in glob.glob("L-*.pdb"):
     inFile=open(file, 'r')
     outFile=open(file+'-A','w')
     
@@ -31,5 +31,3 @@ for file in glob.glob("*.pdb"):
     inFile.close()
     outFile.close()
             
-        
-
