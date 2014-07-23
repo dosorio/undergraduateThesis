@@ -7,39 +7,53 @@ setwd("    ")
 
 #CALCULOS
 #Distancia
-archivos<-list.files("  ",pattern="dist")
-setwd("  ")
-for (i in c(1:14,16:27,31:36,40:42,44:48,50:56,58:60)){
+setwd("/Users/Daniel/Desktop/BioInformatics_Data/")
+archivos<-list.files("DIST/DIST_POPE/")
+setwd("DIST/DIST_POPE/")
+for (i in (1:60)){
   pep<-grep(as.vector(POPE$ID)[i],archivos)[1]
   POPE$minD[i]<-round(min(abs(read.xvg(archivos[pep])[,5])),2)
   POPE$meanD[i]<-round(mean(abs(read.xvg(archivos[pep])[,5])),2)
   POPE$time[i]<-length(which(abs(read.xvg(archivos[pep])[,5])<=2))*3
-  POPE$ftime[i]<-((which(abs(read.xvg(archivos[pep])[,5])<=2.3)[1])*3)/1000
+  POPE$ftime[i]<-((which(abs(read.xvg(archivos[pep])[,5])<=2)[1])*3)/1000
 }
 #Energía
-archivos<-list.files("  ",pattern="ener")
-for (i in c(1:14,16:27,31:36,40:42,44:48,50:56,58:60)){
+setwd("/Users/Daniel/Desktop/BioInformatics_Data/")
+archivos<-list.files("ENER/ENER_POPE/")
+setwd("ENER/ENER_POPE/")
+for (i in (1:59)){
   pep<-grep(as.vector(POPE$ID[i]),archivos)[1]
   A<-read.xvg(archivos[pep])
-  POPE$ener[i]<-mean(A[,2]-A[1,2])
+  POPE$ener[i]<-min(A[,2]-A[1,2])
 }
 
 #RMSD
-archivos<-list.files("  ",pattern="rmsd")
-for (i in c(1:14,16:27,31:36,40:42,44:48,50:56,58:60)){
+setwd("/Users/Daniel/Desktop/BioInformatics_Data/")
+archivos<-list.files("RMSD/RMSD_POPE/")
+setwd("RMSD/RMSD_POPE")
+for (i in c(1:60)){
   pep<-grep(as.vector(POPE$ID)[i],archivos)[1]
   POPE$RMSD[i]<-round(mean(read.xvg(archivos[pep])[,2]),2)
 }
 
 #Giro
-archivos<-list.files("  ",pattern="giro")
-for (i in c(1:14,16:27,31:36,40:42,44:48,50:56,58:60)){
+setwd("/Users/Daniel/Desktop/BioInformatics_Data/")
+archivos<-list.files("GYR/GYR_POPE/")
+setwd("GYR/GYR_POPE/")
+for (i in (1:60)){
   pep<-grep(as.vector(POPE$ID)[i],archivos)[1]
   POPE$GIRO[i]<-round(mean(read.xvg(archivos[pep])[,2]),2)
 }
+
+###################
+# GENERACIÓN DE ARCHIVOS Y CÁLCULO DEL APL
+###################
+
 #APL
-archivos<-list.files("  ",pattern="_md")
-for (i in c(1:14,16:27,31,32,34:36,40:42,44:48,50:53,55:56,58:60)){
+setwd("/Users/Daniel/Desktop/BioInformatics_Data/")
+archivos<-list.files("MD/MD_POPE/")
+setwd("MD/MD_POPE/")
+for (i in c(1:60)){
   pep<-grep(as.vector(POPE$ID)[i],archivos)[1]
   pdb<-read.pdb(archivos[pep])
   write.pdb(pdb,paste("VTMC-",POPE$ID[i],".pdb",sep=""))
@@ -89,10 +103,20 @@ ISEED       =  3141592
 RANDOMIZE     =  YES
 DECIMAL_PLACE =  12")
   sink()
-}  
-archivos<-list.files("  ",pattern=".out")
-setwd("  ")
-for (i in c(1:14,16:27,31,32,34:36,40:42,44:48,50:53,55:56,58:60)){
+}
+
+#############
+# AGREGAR LAS LINEAS 73-76
+# USAR ARREGLARPDB.PY
+# CORRER VTMC
+#############
+
+# LECTURA DE ARCHIVOS DE SALIDA DEL APL
+#############
+setwd("/Users/Daniel/Desktop/BioInformatics_Data/")
+archivos<-list.files("MD/MD_POPE/",pattern=".out")
+setwd("MD/MD_POPE/")
+for (i in c(1:60)){
   peptido<-grep(as.vector(POPE$ID[i]),archivos)[1]
   archivo<-readLines(archivos[peptido])
   linea<-grep("non-boundary",archivo)
@@ -101,18 +125,22 @@ for (i in c(1:14,16:27,31,32,34:36,40:42,44:48,50:53,55:56,58:60)){
   POPE$nbAPLP[i]<-as.numeric(scan(archivos[peptido],skip=linea-5,what="n",quiet=TRUE)[30])
 }
 
+###########
+# ARCHIVOS DE CONFIGURACIÓN GRIDMAT
+###########
 #Thickness
-archivos<-list.files("    ",pattern=".pdb-A")
-setwd(" ")
-for (i in 1: length(POPG$ID)){
-  pep<-grep(as.vector(POPG$ID)[i],archivos)
-  sink(paste("GRIDMAT-",POPG$ID[i],sep=""))
+setwd("/Users/Daniel/Desktop/BioInformatics_Data/")
+archivos<-list.files("MD/MD_POPE/",pattern=".pdb-A")
+setwd("MD/MD_POPE/")
+for (i in 1: length(POPE$ID)){
+  pep<-grep(as.vector(POPE$ID)[i],archivos)[1]
+  sink(paste("GRIDMAT-",POPE$ID[i],sep=""))
   writeLines(paste("coord_file", archivos[pep],sep=" ")) 
   writeLines("file_type pdb
 num_frames 1 
 num_lipid_types 1
-resname1 DPO 
-atomname1 P9 
+resname1 POP 
+atomname1 P8 
 solvent SOL 
 ions NA+,CL-
 box_size solvent 
@@ -125,8 +153,12 @@ thickness yes
 area no")
   sink()
 }
-archivos<-list.files("  ",pattern="bottom")
-for (i in c(1:12,14,16:27,31,32,34:36,44:45,47,48,53,55:56,59:60)){
+
+#############
+# LECTURA DE RESULTADOS
+#############
+archivos<-list.files("./",pattern="bottom")
+for (i in c(1:60)){
   pep<-grep(as.vector(POPE$ID[i]),archivos)[1]
   POPE$maxThick[i]<-round(max(read.csv(archivos[pep])[,1]),2)
   POPE$meanThick[i]<-round(mean(read.csv(archivos[pep])[,1]),2)
