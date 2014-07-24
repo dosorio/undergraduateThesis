@@ -14,7 +14,7 @@ for (i in (1:60)){
   pep<-grep(as.vector(POPE$ID)[i],archivos)[1]
   POPE$minD[i]<-round(min(abs(read.xvg(archivos[pep])[,5])),2)
   POPE$meanD[i]<-round(mean(abs(read.xvg(archivos[pep])[,5])),2)
-  POPE$time[i]<-length(which(abs(read.xvg(archivos[pep])[,5])<=2))*3
+  POPE$time[i]<-(length(which(abs(read.xvg(archivos[pep])[,5])<=2))*3)/1000
   POPE$ftime[i]<-((which(abs(read.xvg(archivos[pep])[,5])<=2)[1])*3)/1000
 }
 #Energía
